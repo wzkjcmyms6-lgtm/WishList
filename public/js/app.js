@@ -140,17 +140,56 @@
   }
 
   function openAddSheet() {
-    state.sheet = { mode: 'add', item: { title: '', description: '', price: '', url: '', image: '' } };
+    state.sheet = { mode: 'add', item: { title: '', description: '', price: '', url: '', image: '' }, uploading: false };
     render();
   }
 
   function openEditSheet(item) {
-    state.sheet = { mode: 'edit', item: { ...item } };
+    state.sheet = { mode: 'edit', item: { ...item }, uploading: false };
     render();
   }
 
   function closeSheet() {
     state.sheet = null;
+    render();
+  }
+
+  function syncFormFieldsToSheetItem() {
+    const form = root.querySelector('#item-form');
+    if (!form || !state.sheet) return;
+    const fd = new FormData(form);
+    state.sheet.item.title = fd.get('title') ?? state.sheet.item.title;
+    state.sheet.item.description = fd.get('description') ?? state.sheet.item.description;
+    state.sheet.item.price = fd.get('price') ?? state.sheet.item.price;
+    state.sheet.item.url = fd.get('url') ?? state.sheet.item.url;
+  }
+
+  async function handleImageFile(file) {
+    if (!file) return;
+    syncFormFieldsToSheetItem();
+    state.sheet.uploading = true;
+    render();
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'No se pudo subir la imagen');
+      }
+      const data = await res.json();
+      state.sheet.item.image = data.url;
+    } catch (e) {
+      showToast(e.message || 'No se pudo subir la imagen');
+    } finally {
+      state.sheet.uploading = false;
+      render();
+    }
+  }
+
+  function removeSheetImage() {
+    syncFormFieldsToSheetItem();
+    state.sheet.item.image = '';
     render();
   }
 
@@ -363,9 +402,31 @@
       </div>`;
   }
 
+  function renderImageField(item, uploading) {
+    if (item.image) {
+      return `
+        <div class="field">
+          <label>Foto</label>
+          <div class="image-preview">
+            <img src="${escapeHtml(item.image)}" alt="" />
+            <button type="button" class="image-remove" data-action="remove-image">🗑️ Quitar</button>
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="field">
+        <label>Foto (opcional)</label>
+        <label class="upload-btn ${uploading ? 'disabled' : ''}">
+          ${uploading ? 'Subiendo...' : '📷 Subir foto desde tu celular'}
+          <input type="file" accept="image/*" data-action="image-file" ${uploading ? 'disabled' : ''} hidden />
+        </label>
+        <input type="url" name="image" placeholder="o pegá un link de imagen" maxlength="1000" />
+      </div>`;
+  }
+
   function renderSheet() {
     if (!state.sheet) return '';
-    const { mode, item } = state.sheet;
+    const { mode, item, uploading } = state.sheet;
     return `
       <div class="sheet-overlay" data-action="sheet-overlay">
         <div class="sheet" data-stop>
@@ -390,10 +451,7 @@
               <label>Link de la tienda (opcional)</label>
               <input type="url" name="url" placeholder="https://..." value="${escapeHtml(item.url)}" maxlength="500" />
             </div>
-            <div class="field">
-              <label>Imagen (URL, opcional)</label>
-              <input type="url" name="image" placeholder="https://..." value="${escapeHtml(item.image)}" maxlength="1000" />
-            </div>
+            ${renderImageField(item, uploading)}
             <div class="sheet-actions">
               <button type="button" class="btn btn-secondary" data-action="sheet-cancel">Cancelar</button>
               <button type="submit" class="btn btn-primary">Guardar</button>
@@ -476,6 +534,10 @@
         elm.addEventListener('click', (evt) => {
           if (evt.target === elm) closeSheet();
         });
+      } else if (action === 'image-file') {
+        elm.addEventListener('change', () => handleImageFile(elm.files[0]));
+      } else if (action === 'remove-image') {
+        elm.addEventListener('click', removeSheetImage);
       }
     });
 
@@ -484,12 +546,13 @@
       form.addEventListener('submit', (evt) => {
         evt.preventDefault();
         const fd = new FormData(form);
+        const imageUrlField = fd.get('image');
         saveSheet({
           title: fd.get('title'),
           description: fd.get('description'),
           price: fd.get('price'),
           url: fd.get('url'),
-          image: fd.get('image'),
+          image: state.sheet.item.image || (typeof imageUrlField === 'string' ? imageUrlField : ''),
         });
       });
     }
