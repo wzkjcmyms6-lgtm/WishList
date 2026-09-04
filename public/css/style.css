@@ -50,13 +50,90 @@ button {
   color: inherit;
 }
 
+.pin-key, .tab-btn, .icon-btn, .reserve-btn, .fab, .btn,
+.logout-btn, .sort-chip, .upload-btn, .nav-item {
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+
+.pin-key:active, .tab-btn:active, .icon-btn:active, .reserve-btn:active,
+.fab:active, .btn:active, .logout-btn:active, .sort-chip:active,
+.upload-btn:active, .nav-item:active {
+  transform: scale(0.93);
+}
+
 input, textarea {
   font-family: inherit;
   font-size: 16px;
 }
 
+input:focus, textarea:focus {
+  outline: 2px solid var(--pink-deep);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sheetIn {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ---------- Boot spinner ---------- */
+.screen-boot {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.boot-spinner {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid #E6DCC9;
+  border-top-color: var(--pink-deep);
+  animation: spin 0.8s linear infinite;
+}
+
 /* ---------- Login: profile picker ---------- */
 .screen-login {
+  animation: fadeSlideUp 0.35s ease both;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -134,6 +211,7 @@ input, textarea {
 
 /* ---------- PIN screen ---------- */
 .screen-pin {
+  animation: fadeSlideUp 0.3s ease both;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -247,6 +325,7 @@ input, textarea {
 
 /* ---------- Dashboard ---------- */
 .screen-dashboard {
+  animation: fadeSlideUp 0.3s ease both;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -333,6 +412,129 @@ input, textarea {
   gap: 14px;
   box-shadow: 0 4px 14px rgba(0,0,0,0.05);
   position: relative;
+}
+
+.item-card.card-enter {
+  animation: cardIn 0.35s ease both;
+}
+
+/* ---------- Search & sort ---------- */
+.list-controls {
+  padding: 0 22px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card);
+  border-radius: 999px;
+  padding: 10px 16px;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+}
+
+.search-icon {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14.5px;
+  color: var(--ink);
+}
+
+.search-input:focus {
+  outline: none;
+}
+
+.sort-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.sort-chip {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: #EFE6D6;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.sort-chip.active {
+  background: var(--ink);
+  color: #fff;
+}
+
+/* ---------- Skeleton loading ---------- */
+.skeleton-card {
+  box-shadow: none;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #EFE6D6 25%, #F6EFE2 37%, #EFE6D6 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-thumb {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
+.skeleton-line {
+  height: 12px;
+  margin-bottom: 10px;
+}
+
+/* ---------- Confirm dialog ---------- */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  padding: 24px;
+  animation: overlayIn 0.15s ease both;
+}
+
+.confirm-box {
+  width: 100%;
+  max-width: 360px;
+  background: var(--cream);
+  border-radius: var(--radius-md);
+  padding: 22px;
+  animation: popIn 0.2s ease both;
+}
+
+.confirm-message {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  line-height: 1.4;
+}
+
+.btn-danger-solid {
+  background: var(--danger);
+  color: #fff;
+}
+
+.empty-state.small {
+  padding: 36px 20px;
 }
 
 .item-thumb {
@@ -507,6 +709,7 @@ input, textarea {
   align-items: flex-end;
   justify-content: center;
   z-index: 50;
+  animation: overlayIn 0.2s ease both;
 }
 
 .sheet {
@@ -517,6 +720,7 @@ input, textarea {
   padding: 20px 22px calc(24px + env(safe-area-inset-bottom));
   max-height: 88vh;
   overflow-y: auto;
+  animation: sheetIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .sheet-handle {
