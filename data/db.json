@@ -1,0 +1,19 @@
+{
+  "profiles": {
+    "lentina": {
+      "id": "lentina",
+      "name": "Lentina",
+      "pin": "3103",
+      "emoji": "🌸",
+      "theme": "pink"
+    },
+    "manolo": {
+      "id": "manolo",
+      "name": "Manolo",
+      "pin": "0701",
+      "emoji": "🦁",
+      "theme": "blue"
+    }
+  },
+  "items": []
+}
