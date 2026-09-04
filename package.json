@@ -1,7 +1,7 @@
 {
   "name": "wishlist",
   "version": "1.0.0",
-  "description": "Wishlist para dos - Lentina & Manolo",
+  "description": "Wishlist para dos - Lentina & Manuelito",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

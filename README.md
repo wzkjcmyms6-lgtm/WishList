@@ -1,15 +1,15 @@
 # Nuestra Wishlist 💫
 
-Sitio web mobile-first para que dos personas (Lentina y Manolo) lleven cada
+Sitio web mobile-first para que dos personas (Lentina y Manuelito) lleven cada
 una su propia lista de deseos y puedan reservar en secreto los regalos que
 le van a hacer a la otra persona.
 
 ## Perfiles
 
-| Perfil  | Clave |
-|---------|-------|
-| Lentina | 3103  |
-| Manolo  | 0701  |
+| Perfil    | Clave |
+|-----------|-------|
+| Lentina   | 3103  |
+| Manuelito | 0701  |
 
 ## Cómo funciona
 
