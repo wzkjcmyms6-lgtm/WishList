@@ -2,9 +2,35 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const multer = require('multer');
 
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
+const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
 const PORT = process.env.PORT || 3000;
+
+const ALLOWED_IMAGE_TYPES = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+};
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, UPLOADS_DIR),
+    filename: (req, file, cb) => {
+      const ext = ALLOWED_IMAGE_TYPES[file.mimetype];
+      cb(null, `${crypto.randomUUID()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!ALLOWED_IMAGE_TYPES[file.mimetype]) {
+      return cb(new Error('Formato de imagen no soportado'));
+    }
+    cb(null, true);
+  },
+});
 
 const app = express();
 app.use(express.json());
@@ -44,6 +70,20 @@ app.post('/api/login', (req, res) => {
     return res.status(401).json({ error: 'Clave incorrecta' });
   }
   res.json({ ok: true, profile: publicProfile(profile) });
+});
+
+// Upload an image from the device (camera roll) and get back a URL to use as an item's image
+app.post('/api/upload', (req, res) => {
+  upload.single('image')(req, res, (err) => {
+    if (err) {
+      const message = err.code === 'LIMIT_FILE_SIZE' ? 'La imagen es muy pesada (máx. 5MB)' : err.message;
+      return res.status(400).json({ error: message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se recibió ninguna imagen' });
+    }
+    res.status(201).json({ url: `/uploads/${req.file.filename}` });
+  });
 });
 
 // Get items for an owner. If viewer === owner, hide reservation info (keeps surprises secret).
