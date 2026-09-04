@@ -4,16 +4,20 @@
   const root = document.getElementById('app');
 
   const state = {
+    booting: true, // true until profiles + (if session) dashboard data are loaded
     profiles: [],
     session: loadSession(), // { id, name, emoji, theme } | null
     pinTarget: null, // profile being unlocked
     pinBuffer: '',
     pinError: false,
     activeTab: 'mine', // 'mine' | 'partner'
-    myItems: [],
-    partnerItems: [],
+    myItems: null, // null = not loaded yet (shows skeleton); [] = loaded, empty
+    partnerItems: null,
     partnerProfile: null,
+    search: '',
+    sortBy: 'recent', // 'recent' | 'price-asc' | 'price-desc'
     sheet: null, // { mode: 'add'|'edit', item }
+    confirm: null, // { message, onConfirm }
     toast: null,
   };
 
@@ -79,6 +83,38 @@
     render();
   }
 
+  function openConfirm(message, onConfirm) {
+    state.confirm = { message, onConfirm };
+    render();
+  }
+
+  function closeConfirm() {
+    state.confirm = null;
+    render();
+  }
+
+  function filterAndSortItems(items) {
+    if (!items) return [];
+    const q = state.search.trim().toLowerCase();
+    let result = q ? items.filter((it) => it.title.toLowerCase().includes(q)) : items.slice();
+    const priceValue = (it) => {
+      const n = parseFloat(String(it.price).replace(/[^\d.,]/g, '').replace(',', '.'));
+      return Number.isFinite(n) ? n : null;
+    };
+    if (state.sortBy === 'price-asc' || state.sortBy === 'price-desc') {
+      const dir = state.sortBy === 'price-asc' ? 1 : -1;
+      result.sort((a, b) => {
+        const pa = priceValue(a);
+        const pb = priceValue(b);
+        if (pa === null && pb === null) return 0;
+        if (pa === null) return 1;
+        if (pb === null) return -1;
+        return (pa - pb) * dir;
+      });
+    }
+    return result;
+  }
+
   // ---------- Actions ----------
   function openPin(profile) {
     state.pinTarget = profile;
@@ -129,13 +165,17 @@
   function logout() {
     clearSession();
     state.activeTab = 'mine';
-    state.myItems = [];
-    state.partnerItems = [];
+    state.myItems = null;
+    state.partnerItems = null;
+    state.search = '';
+    state.sortBy = 'recent';
     render();
   }
 
   function switchTab(tab) {
     state.activeTab = tab;
+    state.search = '';
+    state.sortBy = 'recent';
     render();
   }
 
@@ -264,7 +304,7 @@
     return `<div class="item-thumb">🎁</div>`;
   }
 
-  function renderItemCard(item, mode) {
+  function renderItemCard(item, mode, index) {
     const meta = `
       <div class="item-meta">
         ${item.price ? `<span class="item-price">${escapeHtml(item.price)}</span>` : ''}
@@ -290,8 +330,9 @@
       }
     }
 
+    const delay = Math.min(index || 0, 8) * 0.05;
     return `
-      <div class="item-card">
+      <div class="item-card card-enter" style="animation-delay:${delay}s">
         ${itemThumb(item)}
         <div class="item-body">
           <div class="item-title">${escapeHtml(item.title)}</div>
@@ -360,18 +401,73 @@
       </div>`;
   }
 
+  function renderSkeletonList() {
+    return `
+      <div class="items-list">
+        ${[0, 1, 2]
+          .map(
+            (i) => `
+          <div class="item-card skeleton-card" style="animation-delay:${i * 0.08}s">
+            <div class="skeleton skeleton-thumb"></div>
+            <div class="item-body">
+              <div class="skeleton skeleton-line" style="width:60%"></div>
+              <div class="skeleton skeleton-line" style="width:85%"></div>
+              <div class="skeleton skeleton-line" style="width:35%"></div>
+            </div>
+          </div>`
+          )
+          .join('')}
+      </div>`;
+  }
+
+  function renderListControls(rawCount) {
+    if (rawCount === 0) return '';
+    const sorts = [
+      { id: 'recent', label: 'Recientes' },
+      { id: 'price-asc', label: 'Precio ↑' },
+      { id: 'price-desc', label: 'Precio ↓' },
+    ];
+    return `
+      <div class="list-controls">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="search-input" data-action="search" placeholder="Buscar en la lista..." value="${escapeHtml(state.search)}" />
+        </div>
+        <div class="sort-chips">
+          ${sorts
+            .map(
+              (s) =>
+                `<button class="sort-chip ${state.sortBy === s.id ? 'active' : ''}" data-action="sort" data-sort="${s.id}">${s.label}</button>`
+            )
+            .join('')}
+        </div>
+      </div>`;
+  }
+
   function renderDashboard() {
     const mode = state.activeTab;
-    const items = mode === 'mine' ? state.myItems : state.partnerItems;
+    const rawItems = mode === 'mine' ? state.myItems : state.partnerItems;
     const partnerName = state.partnerProfile ? state.partnerProfile.name : 'tu pareja';
+    const loading = rawItems === null;
 
-    const list =
-      items.length === 0
-        ? `<div class="empty-state">
+    let list;
+    if (loading) {
+      list = renderSkeletonList();
+    } else if (rawItems.length === 0) {
+      list = `<div class="empty-state">
              <div class="empty-emoji">${mode === 'mine' ? '📝' : '🎁'}</div>
              <div>${mode === 'mine' ? 'Aún no agregaste nada.<br/>Toca + para empezar.' : `${escapeHtml(partnerName)} no tiene deseos todavía.`}</div>
-           </div>`
-        : `<div class="items-list">${items.map((it) => renderItemCard(it, mode)).join('')}</div>`;
+           </div>`;
+    } else {
+      const items = filterAndSortItems(rawItems);
+      const cards = items.length
+        ? items.map((it, i) => renderItemCard(it, mode, i)).join('')
+        : `<div class="empty-state small">
+             <div class="empty-emoji">🔎</div>
+             <div>Nada coincide con "${escapeHtml(state.search)}"</div>
+           </div>`;
+      list = `${renderListControls(rawItems.length)}<div class="items-list">${cards}</div>`;
+    }
 
     return `
       <div class="screen-dashboard">
@@ -468,16 +564,40 @@
       </div>`;
   }
 
+  function renderBootScreen() {
+    return `
+      <div class="screen-boot">
+        <div class="boot-spinner"></div>
+      </div>`;
+  }
+
+  function renderConfirmDialog() {
+    if (!state.confirm) return '';
+    return `
+      <div class="confirm-overlay" data-action="confirm-overlay">
+        <div class="confirm-box">
+          <div class="confirm-message">${escapeHtml(state.confirm.message)}</div>
+          <div class="sheet-actions">
+            <button type="button" class="btn btn-secondary" data-action="confirm-cancel">Cancelar</button>
+            <button type="button" class="btn btn-danger-solid" data-action="confirm-yes">Eliminar</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
   function render() {
     let html = '';
 
-    if (!state.session) {
+    if (state.booting) {
+      html = renderBootScreen();
+    } else if (!state.session) {
       html = state.pinTarget ? renderPinScreen() : renderLoginProfiles();
     } else {
       html = renderDashboard();
     }
 
     html += renderSheet();
+    html += renderConfirmDialog();
 
     if (state.toast) {
       html += `<div class="toast">${escapeHtml(state.toast)}</div>`;
@@ -512,11 +632,40 @@
         });
       } else if (action === 'delete') {
         elm.addEventListener('click', () => {
-          if (confirm('¿Eliminar este deseo?')) deleteItem(elm.getAttribute('data-id'));
+          const id = elm.getAttribute('data-id');
+          openConfirm('¿Eliminar este deseo? No se puede deshacer.', () => deleteItem(id));
         });
       } else if (action === 'sheet-delete') {
         elm.addEventListener('click', () => {
-          if (confirm('¿Eliminar este deseo?')) deleteItem(elm.getAttribute('data-id'));
+          const id = elm.getAttribute('data-id');
+          openConfirm('¿Eliminar este deseo? No se puede deshacer.', () => deleteItem(id));
+        });
+      } else if (action === 'confirm-yes') {
+        elm.addEventListener('click', () => {
+          const cb = state.confirm && state.confirm.onConfirm;
+          closeConfirm();
+          if (cb) cb();
+        });
+      } else if (action === 'confirm-cancel' || action === 'confirm-overlay') {
+        elm.addEventListener('click', (evt) => {
+          if (action === 'confirm-overlay' && evt.target !== elm) return;
+          closeConfirm();
+        });
+      } else if (action === 'search') {
+        elm.addEventListener('input', () => {
+          const cursorPos = elm.selectionStart;
+          state.search = elm.value;
+          render();
+          const newInput = root.querySelector('[data-action="search"]');
+          if (newInput) {
+            newInput.focus();
+            newInput.setSelectionRange(cursorPos, cursorPos);
+          }
+        });
+      } else if (action === 'sort') {
+        elm.addEventListener('click', () => {
+          state.sortBy = elm.getAttribute('data-sort');
+          render();
         });
       } else if (action === 'reserve') {
         elm.addEventListener('click', () => {
@@ -560,16 +709,19 @@
 
   // ---------- Init ----------
   async function init() {
-    root.innerHTML = '';
+    render(); // shows boot spinner immediately
     await loadProfiles();
     if (state.session) {
       const stillValid = state.profiles.some((p) => p.id === state.session.id);
       if (stillValid) {
         await loadDashboardData();
+        state.booting = false;
+        render();
         return;
       }
       clearSession();
     }
+    state.booting = false;
     render();
   }
 
