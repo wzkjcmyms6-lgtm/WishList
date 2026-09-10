@@ -297,6 +297,12 @@
       .replace(/'/g, '&#39;');
   }
 
+  function formatPrice(price) {
+    const trimmed = String(price).trim();
+    if (!trimmed) return '';
+    return /^bs\.?\s*/i.test(trimmed) ? trimmed : `Bs ${trimmed}`;
+  }
+
   function itemThumb(item) {
     if (item.image) {
       return `<div class="item-thumb"><img src="${escapeHtml(item.image)}" alt="" onerror="this.parentElement.innerHTML='🎁'"/></div>`;
@@ -307,7 +313,7 @@
   function renderItemCard(item, mode, index) {
     const meta = `
       <div class="item-meta">
-        ${item.price ? `<span class="item-price">${escapeHtml(item.price)}</span>` : ''}
+        ${item.price ? `<span class="item-price">${escapeHtml(formatPrice(item.price))}</span>` : ''}
         ${item.url ? `<a class="item-link" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Ver enlace ↗</a>` : ''}
       </div>`;
 
@@ -539,8 +545,8 @@
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Precio aprox.</label>
-                <input type="text" name="price" placeholder="$50.000" value="${escapeHtml(item.price)}" maxlength="50" />
+                <label>Precio aprox. (Bs)</label>
+                <input type="text" name="price" placeholder="Bs 350" value="${escapeHtml(item.price)}" maxlength="50" />
               </div>
             </div>
             <div class="field">
