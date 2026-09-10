@@ -1,12 +1,27 @@
 const express = require('express');
-const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
 
-const DB_PATH = path.join(__dirname, 'data', 'db.json');
-const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
 const PORT = process.env.PORT || 3000;
+
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+  console.error(
+    'Faltan las variables de entorno SUPABASE_URL y/o SUPABASE_SERVICE_KEY. ' +
+      'Revisá el README para configurarlas (localmente en un archivo .env, o en el panel de tu hosting).'
+  );
+  process.exit(1);
+}
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+const IMAGES_BUCKET = 'wishlist-images';
+
+const PROFILES = {
+  lentina: { id: 'lentina', name: 'Lentina', pin: '3103', emoji: '🐻‍❄️', theme: 'pink' },
+  manolo: { id: 'manolo', name: 'Manuelito', pin: '0701', emoji: '🐻', theme: 'blue' },
+};
 
 const ALLOWED_IMAGE_TYPES = {
   'image/jpeg': '.jpg',
@@ -16,13 +31,7 @@ const ALLOWED_IMAGE_TYPES = {
 };
 
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-    filename: (req, file, cb) => {
-      const ext = ALLOWED_IMAGE_TYPES[file.mimetype];
-      cb(null, `${crypto.randomUUID()}${ext}`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (!ALLOWED_IMAGE_TYPES[file.mimetype]) {
@@ -36,36 +45,44 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-function readDb() {
-  return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-}
-
-function writeDb(db) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
-}
-
 function publicProfile(profile) {
   return { id: profile.id, name: profile.name, emoji: profile.emoji, theme: profile.theme };
 }
 
-function isValidProfileId(db, id) {
-  return typeof id === 'string' && Object.prototype.hasOwnProperty.call(db.profiles, id);
+function isValidProfileId(id) {
+  return typeof id === 'string' && Object.prototype.hasOwnProperty.call(PROFILES, id);
+}
+
+function toItemView(row, hideReservation) {
+  const item = {
+    id: row.id,
+    owner: row.owner,
+    title: row.title,
+    description: row.description || '',
+    url: row.url || '',
+    price: row.price || '',
+    image: row.image || '',
+    createdAt: new Date(row.created_at).getTime(),
+  };
+  if (!hideReservation) {
+    item.reserved = row.reserved;
+    item.reservedBy = row.reserved_by;
+  }
+  return item;
 }
 
 // List profiles (no PINs exposed)
 app.get('/api/profiles', (req, res) => {
-  const db = readDb();
-  res.json(Object.values(db.profiles).map(publicProfile));
+  res.json(Object.values(PROFILES).map(publicProfile));
 });
 
 // Login with PIN
 app.post('/api/login', (req, res) => {
   const { profileId, pin } = req.body || {};
-  const db = readDb();
-  if (!isValidProfileId(db, profileId)) {
+  if (!isValidProfileId(profileId)) {
     return res.status(404).json({ error: 'Perfil no encontrado' });
   }
-  const profile = db.profiles[profileId];
+  const profile = PROFILES[profileId];
   if (typeof pin !== 'string' || pin !== profile.pin) {
     return res.status(401).json({ error: 'Clave incorrecta' });
   }
@@ -74,7 +91,7 @@ app.post('/api/login', (req, res) => {
 
 // Upload an image from the device (camera roll) and get back a URL to use as an item's image
 app.post('/api/upload', (req, res) => {
-  upload.single('image')(req, res, (err) => {
+  upload.single('image')(req, res, async (err) => {
     if (err) {
       const message = err.code === 'LIMIT_FILE_SIZE' ? 'La imagen es muy pesada (máx. 5MB)' : err.message;
       return res.status(400).json({ error: message });
@@ -82,107 +99,127 @@ app.post('/api/upload', (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No se recibió ninguna imagen' });
     }
-    res.status(201).json({ url: `/uploads/${req.file.filename}` });
+    const ext = ALLOWED_IMAGE_TYPES[req.file.mimetype];
+    const filename = `${crypto.randomUUID()}${ext}`;
+    const { error } = await supabase.storage
+      .from(IMAGES_BUCKET)
+      .upload(filename, req.file.buffer, { contentType: req.file.mimetype });
+    if (error) {
+      return res.status(500).json({ error: 'No se pudo subir la imagen' });
+    }
+    const { data } = supabase.storage.from(IMAGES_BUCKET).getPublicUrl(filename);
+    res.status(201).json({ url: data.publicUrl });
   });
 });
 
 // Get items for an owner. If viewer === owner, hide reservation info (keeps surprises secret).
-app.get('/api/items', (req, res) => {
-  const db = readDb();
+app.get('/api/items', async (req, res) => {
   const { owner, viewer } = req.query;
-  if (!isValidProfileId(db, owner)) {
+  if (!isValidProfileId(owner)) {
     return res.status(400).json({ error: 'Perfil de owner inválido' });
   }
-  const items = db.items
-    .filter((item) => item.owner === owner)
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .map((item) => {
-      if (viewer === owner) {
-        const { reserved, reservedBy, ...rest } = item;
-        return rest;
-      }
-      return item;
-    });
-  res.json(items);
+  const { data, error } = await supabase
+    .from('items')
+    .select('*')
+    .eq('owner', owner)
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: 'Error al leer los deseos' });
+  res.json(data.map((row) => toItemView(row, viewer === owner)));
 });
 
 // Add a new item (only the requester who owns the list may add to it)
-app.post('/api/items', (req, res) => {
-  const db = readDb();
+app.post('/api/items', async (req, res) => {
   const { owner, requester, title, description, url, price, image } = req.body || {};
-  if (!isValidProfileId(db, owner) || !isValidProfileId(db, requester) || requester !== owner) {
+  if (!isValidProfileId(owner) || !isValidProfileId(requester) || requester !== owner) {
     return res.status(403).json({ error: 'No autorizado' });
   }
   if (typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'El título es obligatorio' });
   }
-  const item = {
-    id: crypto.randomUUID(),
-    owner,
-    title: title.trim().slice(0, 200),
-    description: typeof description === 'string' ? description.trim().slice(0, 1000) : '',
-    url: typeof url === 'string' ? url.trim().slice(0, 500) : '',
-    price: typeof price === 'string' ? price.trim().slice(0, 50) : '',
-    image: typeof image === 'string' ? image.trim().slice(0, 1000) : '',
-    reserved: false,
-    reservedBy: null,
-    createdAt: Date.now(),
-  };
-  db.items.push(item);
-  writeDb(db);
-  const { reserved, reservedBy, ...ownerView } = item;
-  res.status(201).json(ownerView);
+  const { data, error } = await supabase
+    .from('items')
+    .insert({
+      owner,
+      title: title.trim().slice(0, 200),
+      description: typeof description === 'string' ? description.trim().slice(0, 1000) : '',
+      url: typeof url === 'string' ? url.trim().slice(0, 500) : '',
+      price: typeof price === 'string' ? price.trim().slice(0, 50) : '',
+      image: typeof image === 'string' ? image.trim().slice(0, 1000) : '',
+    })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: 'No se pudo guardar el deseo' });
+  res.status(201).json(toItemView(data, true));
 });
 
 // Edit an item (only owner)
-app.put('/api/items/:id', (req, res) => {
-  const db = readDb();
+app.put('/api/items/:id', async (req, res) => {
   const { requester, title, description, url, price, image } = req.body || {};
-  const item = db.items.find((i) => i.id === req.params.id);
-  if (!item) return res.status(404).json({ error: 'No encontrado' });
-  if (requester !== item.owner) return res.status(403).json({ error: 'No autorizado' });
+  const { data: existing, error: findError } = await supabase
+    .from('items')
+    .select('owner')
+    .eq('id', req.params.id)
+    .maybeSingle();
+  if (findError) return res.status(500).json({ error: 'Error al buscar el deseo' });
+  if (!existing) return res.status(404).json({ error: 'No encontrado' });
+  if (requester !== existing.owner) return res.status(403).json({ error: 'No autorizado' });
 
-  if (typeof title === 'string' && title.trim()) item.title = title.trim().slice(0, 200);
-  if (typeof description === 'string') item.description = description.trim().slice(0, 1000);
-  if (typeof url === 'string') item.url = url.trim().slice(0, 500);
-  if (typeof price === 'string') item.price = price.trim().slice(0, 50);
-  if (typeof image === 'string') item.image = image.trim().slice(0, 1000);
+  const updates = {};
+  if (typeof title === 'string' && title.trim()) updates.title = title.trim().slice(0, 200);
+  if (typeof description === 'string') updates.description = description.trim().slice(0, 1000);
+  if (typeof url === 'string') updates.url = url.trim().slice(0, 500);
+  if (typeof price === 'string') updates.price = price.trim().slice(0, 50);
+  if (typeof image === 'string') updates.image = image.trim().slice(0, 1000);
 
-  writeDb(db);
-  const { reserved, reservedBy, ...ownerView } = item;
-  res.json(ownerView);
+  const { data, error } = await supabase
+    .from('items')
+    .update(updates)
+    .eq('id', req.params.id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: 'No se pudo actualizar el deseo' });
+  res.json(toItemView(data, true));
 });
 
 // Delete an item (only owner)
-app.delete('/api/items/:id', (req, res) => {
-  const db = readDb();
+app.delete('/api/items/:id', async (req, res) => {
   const { requester } = req.body || {};
-  const idx = db.items.findIndex((i) => i.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'No encontrado' });
-  if (requester !== db.items[idx].owner) return res.status(403).json({ error: 'No autorizado' });
-  db.items.splice(idx, 1);
-  writeDb(db);
+  const { data: existing, error: findError } = await supabase
+    .from('items')
+    .select('owner')
+    .eq('id', req.params.id)
+    .maybeSingle();
+  if (findError) return res.status(500).json({ error: 'Error al buscar el deseo' });
+  if (!existing) return res.status(404).json({ error: 'No encontrado' });
+  if (requester !== existing.owner) return res.status(403).json({ error: 'No autorizado' });
+
+  const { error } = await supabase.from('items').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: 'No se pudo eliminar el deseo' });
   res.status(204).end();
 });
 
 // Toggle reservation (only the partner, never the owner, may reserve/unreserve)
-app.post('/api/items/:id/reserve', (req, res) => {
-  const db = readDb();
+app.post('/api/items/:id/reserve', async (req, res) => {
   const { requester, reserved } = req.body || {};
-  const item = db.items.find((i) => i.id === req.params.id);
-  if (!item) return res.status(404).json({ error: 'No encontrado' });
-  if (!isValidProfileId(db, requester) || requester === item.owner) {
+  const { data: existing, error: findError } = await supabase
+    .from('items')
+    .select('owner')
+    .eq('id', req.params.id)
+    .maybeSingle();
+  if (findError) return res.status(500).json({ error: 'Error al buscar el deseo' });
+  if (!existing) return res.status(404).json({ error: 'No encontrado' });
+  if (!isValidProfileId(requester) || requester === existing.owner) {
     return res.status(403).json({ error: 'No autorizado' });
   }
-  if (reserved) {
-    item.reserved = true;
-    item.reservedBy = requester;
-  } else {
-    item.reserved = false;
-    item.reservedBy = null;
-  }
-  writeDb(db);
-  res.json(item);
+
+  const { data, error } = await supabase
+    .from('items')
+    .update({ reserved: !!reserved, reserved_by: reserved ? requester : null })
+    .eq('id', req.params.id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: 'No se pudo actualizar la reserva' });
+  res.json(toItemView(data, false));
 });
 
 app.listen(PORT, () => {
