@@ -233,7 +233,7 @@ function openEditSheet(item) {
   render();
 }
 function openAddFoodSheet() {
-  state.sheet = { kind: 'food', mode: 'add', item: { name: '', note: '' } };
+  state.sheet = { kind: 'food', mode: 'add', item: { name: '', restaurant: '', note: '' } };
   render();
 }
 function openEditFoodSheet(item) {
@@ -315,6 +315,7 @@ async function saveFoodSheet(formData) {
   if (!foodCol) { showToast('Sin conexión a la base de datos'); return; }
   const payload = {
     name: name.slice(0, 120),
+    restaurant: (formData.restaurant || '').trim().slice(0, 150),
     note: (formData.note || '').trim().slice(0, 300),
   };
   try {
@@ -408,6 +409,7 @@ function renderFoodCard(item, mode) {
     <div class="item-thumb">🍽️</div>
     <div class="item-body">
       <div class="item-title">${escapeHtml(item.name)}</div>
+      ${item.restaurant ? `<div class="item-desc">📍 ${escapeHtml(item.restaurant)}</div>` : ''}
       ${item.note ? `<div class="item-desc">${escapeHtml(item.note)}</div>` : ''}
     </div>${actions}
   </div>`;
@@ -553,6 +555,8 @@ function renderFoodSheet() {
     <form id="food-form">
       <div class="field"><label>¿Qué comida te gusta?</label>
         <input type="text" id="field-food-name" name="name" placeholder="Ej. Milanesa con papas" value="${escapeHtml(item.name)}" required maxlength="120" /></div>
+      <div class="field"><label>Restaurante (opcional)</label>
+        <input type="text" id="field-food-restaurant" name="restaurant" placeholder="Ej. La Casona" value="${escapeHtml(item.restaurant)}" maxlength="150" /></div>
       <div class="field"><label>Notas (opcional)</label>
         <textarea id="field-food-note" name="note" placeholder="Sin cebolla, bien picante..." maxlength="300">${escapeHtml(item.note)}</textarea></div>
       <div class="sheet-actions">
@@ -744,7 +748,7 @@ function bindEvents() {
     foodForm.addEventListener('submit', (evt) => {
       evt.preventDefault();
       const fd = new FormData(foodForm);
-      saveFoodSheet({ name: fd.get('name'), note: fd.get('note') });
+      saveFoodSheet({ name: fd.get('name'), restaurant: fd.get('restaurant'), note: fd.get('note') });
     });
   }
 }
