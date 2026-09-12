@@ -4,6 +4,19 @@
 // La carga de Firebase es asíncrona y no bloquea el resto de la página: si
 // falla (sin internet, CDN caído), igual se puede ver el login/PIN.
 
+// El meta viewport (user-scalable=no) no alcanza en iOS Safari: desde hace
+// años ignora esa directiva por accesibilidad, así que hay que bloquear el
+// pellizco para hacer zoom explícitamente a mano.
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('gesturechange', (e) => e.preventDefault());
+let lastTouchEnd = 0;
+document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+document.addEventListener('touchend', (e) => {
+  const now = Date.now();
+  if (now - lastTouchEnd <= 300) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+
 const root = document.getElementById('app');
 
 const PROFILES = {

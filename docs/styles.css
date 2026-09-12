@@ -51,13 +51,16 @@ html, body {
 
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 
-.pin-key, .tab-btn, .icon-btn, .reserve-btn, .fab, .btn,
+.tab-btn, .icon-btn, .reserve-btn, .fab, .btn,
 .logout-btn, .sort-chip, .upload-btn, .nav-item {
   transition: transform 0.12s ease, opacity 0.12s ease;
 }
-.pin-key:active, .tab-btn:active, .icon-btn:active, .reserve-btn:active,
+.tab-btn:active, .icon-btn:active, .reserve-btn:active,
 .fab:active, .btn:active, .logout-btn:active, .sort-chip:active,
 .upload-btn:active, .nav-item:active { transform: scale(0.93); }
+
+.pin-key { transition: opacity 0.12s ease, background 0.12s ease; }
+.pin-key:active { opacity: 0.65; }
 
 input, textarea { font-family: inherit; font-size: 16px; color: var(--ink); }
 input:focus, textarea:focus { outline: 2px solid var(--pink-deep); outline-offset: 1px; }
