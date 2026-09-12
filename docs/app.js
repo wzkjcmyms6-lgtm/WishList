@@ -822,6 +822,46 @@ function bindEvents() {
       saveTastes(formData);
     });
   }
+
+  setupSheetDrag();
+}
+
+function setupSheetDrag() {
+  const sheetEl = root.querySelector('.sheet');
+  const handleEl = root.querySelector('.sheet-handle');
+  if (!sheetEl || !handleEl) return;
+  let startY = 0;
+  let dragY = 0;
+  let dragging = false;
+
+  const start = (y) => { dragging = true; startY = y; sheetEl.style.transition = 'none'; };
+  const move = (y) => {
+    if (!dragging) return;
+    dragY = Math.max(0, y - startY);
+    sheetEl.style.transform = `translateY(${dragY}px)`;
+  };
+  const end = () => {
+    if (!dragging) return;
+    dragging = false;
+    sheetEl.style.transition = 'transform 0.2s ease';
+    if (dragY > 90) {
+      sheetEl.style.transform = 'translateY(100%)';
+      setTimeout(closeSheet, 180);
+    } else {
+      sheetEl.style.transform = 'translateY(0)';
+    }
+  };
+
+  handleEl.addEventListener('touchstart', (e) => start(e.touches[0].clientY), { passive: true });
+  handleEl.addEventListener('touchmove', (e) => move(e.touches[0].clientY), { passive: true });
+  handleEl.addEventListener('touchend', end);
+  handleEl.addEventListener('mousedown', (e) => {
+    start(e.clientY);
+    const onMove = (ev) => move(ev.clientY);
+    const onUp = () => { end(); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
 }
 
 render();
