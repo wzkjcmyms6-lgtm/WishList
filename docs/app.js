@@ -566,7 +566,8 @@ function renderDashboard() {
     ${section === 'tastes' ? '' : `<div class="tabs">
       <button class="tab-btn ${mode === 'mine' ? 'active' : ''}" data-action="tab" data-tab="mine">Mi lista</button>
       <button class="tab-btn ${mode === 'partner' ? 'active' : ''}" data-action="tab" data-tab="partner">${escapeHtml(partnerName)}</button>
-    </div>`}${list}
+    </div>`}
+    <div class="dashboard-scroll">${list}</div>
     ${section !== 'tastes' && mode === 'mine' ? `<button class="fab" data-action="${section === 'food' ? 'add-food' : 'add'}">+</button>` : ''}
     <div class="bottom-nav">
       <button class="nav-item ${mode === 'mine' ? 'active' : ''}" data-action="tab" data-tab="mine"><span class="nav-icon">🏠</span>Mi lista</button>

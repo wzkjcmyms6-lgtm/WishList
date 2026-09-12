@@ -43,10 +43,7 @@ html, body {
   position: relative;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
 }
 
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
@@ -111,7 +108,8 @@ input:focus, textarea:focus { outline: 2px solid var(--pink-deep); outline-offse
 .pin-key { aspect-ratio: 1; border-radius: 50%; background: var(--card); font-size: 24px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 8px rgba(0,0,0,0.06); }
 .pin-key.ghost { background: transparent; box-shadow: none; font-size: 15px; color: var(--muted); }
 
-.screen-dashboard { animation: fadeSlideUp 0.3s ease both; flex: 1; display: flex; flex-direction: column; padding-bottom: 90px; }
+.screen-dashboard { animation: fadeSlideUp 0.3s ease both; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.dashboard-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; padding-bottom: 90px; }
 .dash-header { padding: 22px 22px 16px; display: flex; justify-content: space-between; align-items: flex-start; }
 .dash-greeting { font-family: var(--font-heading); font-size: 22px; font-weight: 800; }
 .dash-sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
