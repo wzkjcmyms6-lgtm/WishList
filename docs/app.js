@@ -25,10 +25,12 @@ const state = {
   booting: true,
   firestoreError: false,
   items: [],
+  foodItems: [],
   session: loadSession(),
   pinTarget: null,
   pinBuffer: '',
   pinError: false,
+  activeSection: 'gifts',
   activeTab: 'mine',
   search: '',
   sortBy: 'recent',
@@ -39,6 +41,7 @@ const state = {
 };
 
 let itemsCol = null;
+let foodCol = null;
 let fsAddDoc = null, fsUpdateDoc = null, fsDeleteDoc = null, fsDoc = null;
 
 (async () => {
@@ -61,6 +64,7 @@ let fsAddDoc = null, fsUpdateDoc = null, fsDeleteDoc = null, fsDoc = null;
     const firebaseApp = initializeApp(firebaseConfig);
     const db = initializeFirestore(firebaseApp, { localCache: persistentLocalCache() });
     itemsCol = collection(db, 'wishlist_items');
+    foodCol = collection(db, 'food_items');
     fsAddDoc = addDoc; fsUpdateDoc = updateDoc; fsDeleteDoc = deleteDoc; fsDoc = doc;
 
     onSnapshot(
@@ -73,6 +77,18 @@ let fsAddDoc = null, fsUpdateDoc = null, fsDeleteDoc = null, fsDoc = null;
       () => {
         state.firestoreError = true;
         state.booting = false;
+        render();
+      }
+    );
+
+    onSnapshot(
+      foodCol,
+      (snap) => {
+        state.foodItems = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        render();
+      },
+      () => {
+        state.firestoreError = true;
         render();
       }
     );
@@ -142,6 +158,8 @@ function escapeHtml(str) {
 function myItems() { return state.items.filter((it) => it.owner === state.session); }
 function partnerId() { return state.session === 'lentina' ? 'manolo' : 'lentina'; }
 function partnerItems() { const pid = partnerId(); return state.items.filter((it) => it.owner === pid); }
+function myFoodItems() { return state.foodItems.filter((it) => it.owner === state.session); }
+function partnerFoodItems() { const pid = partnerId(); return state.foodItems.filter((it) => it.owner === pid); }
 
 function filterAndSort(items) {
   const q = state.search.trim().toLowerCase();
@@ -204,13 +222,22 @@ function logout() {
 }
 
 function switchTab(tab) { state.activeTab = tab; state.search = ''; state.sortBy = 'recent'; render(); }
+function switchSection(section) { state.activeSection = section; state.search = ''; state.sortBy = 'recent'; render(); }
 
 function openAddSheet() {
-  state.sheet = { mode: 'add', item: { title: '', description: '', price: '', url: '', image: '' }, uploading: false };
+  state.sheet = { kind: 'gift', mode: 'add', item: { title: '', description: '', price: '', url: '', image: '' }, uploading: false };
   render();
 }
 function openEditSheet(item) {
-  state.sheet = { mode: 'edit', item: Object.assign({}, item), uploading: false };
+  state.sheet = { kind: 'gift', mode: 'edit', item: Object.assign({}, item), uploading: false };
+  render();
+}
+function openAddFoodSheet() {
+  state.sheet = { kind: 'food', mode: 'add', item: { name: '', note: '' } };
+  render();
+}
+function openEditFoodSheet(item) {
+  state.sheet = { kind: 'food', mode: 'edit', item: Object.assign({}, item) };
   render();
 }
 function closeSheet() { state.sheet = null; render(); }
@@ -282,6 +309,38 @@ async function deleteItem(id) {
   }
 }
 
+async function saveFoodSheet(formData) {
+  const name = (formData.name || '').trim();
+  if (!name) { showToast('Poné el nombre de la comida'); return; }
+  if (!foodCol) { showToast('Sin conexión a la base de datos'); return; }
+  const payload = {
+    name: name.slice(0, 120),
+    note: (formData.note || '').trim().slice(0, 300),
+  };
+  try {
+    if (state.sheet.mode === 'add') {
+      await fsAddDoc(foodCol, { ...payload, owner: state.session, createdAt: Date.now() });
+      showToast('¡Agregado! 🍽️');
+    } else {
+      await fsUpdateDoc(fsDoc(foodCol, state.sheet.item.id), payload);
+      showToast('Cambios guardados');
+    }
+    closeSheet();
+  } catch (e) {
+    showToast('No se pudo guardar. Revisá tu conexión.');
+  }
+}
+
+async function deleteFoodItem(id) {
+  try {
+    await fsDeleteDoc(fsDoc(foodCol, id));
+    closeSheet();
+    showToast('Eliminado');
+  } catch (e) {
+    showToast('No se pudo eliminar. Revisá tu conexión.');
+  }
+}
+
 async function toggleReserve(item) {
   try {
     await fsUpdateDoc(fsDoc(itemsCol, item.id), {
@@ -336,6 +395,20 @@ function renderItemCard(item, mode, index) {
       <div class="item-title">${escapeHtml(item.title)}</div>
       ${item.description ? `<div class="item-desc">${escapeHtml(item.description)}</div>` : ''}
       ${meta}${extra}
+    </div>${actions}
+  </div>`;
+}
+
+function renderFoodCard(item, mode) {
+  const actions = mode === 'mine' ? `<div class="item-actions">
+    <button class="icon-btn" data-action="edit-food" data-id="${item.id}">✏️</button>
+    <button class="icon-btn danger" data-action="delete-food" data-id="${item.id}">🗑️</button>
+  </div>` : '';
+  return `<div class="item-card card-enter">
+    <div class="item-thumb">🍽️</div>
+    <div class="item-body">
+      <div class="item-title">${escapeHtml(item.name)}</div>
+      ${item.note ? `<div class="item-desc">${escapeHtml(item.note)}</div>` : ''}
     </div>${actions}
   </div>`;
 }
@@ -405,30 +478,49 @@ function renderListControls(count) {
 
 function renderDashboard() {
   const mode = state.activeTab;
+  const section = state.activeSection;
   const partnerName = PROFILES[partnerId()].name;
-  const rawItems = mode === 'mine' ? myItems() : partnerItems();
   let list;
-  if (rawItems.length === 0) {
-    list = `<div class="empty-state"><div class="empty-emoji">${mode === 'mine' ? '📝' : '🎁'}</div>
-      <div>${mode === 'mine' ? 'Aún no agregaste nada.<br/>Toca + para empezar.' : `${escapeHtml(partnerName)} no tiene deseos todavía.`}</div></div>`;
+  if (section === 'food') {
+    const rawItems = mode === 'mine' ? myFoodItems() : partnerFoodItems();
+    if (rawItems.length === 0) {
+      list = `<div class="empty-state"><div class="empty-emoji">🍽️</div>
+        <div>${mode === 'mine' ? 'Aún no agregaste comidas.<br/>Toca + para empezar.' : `${escapeHtml(partnerName)} no agregó comidas todavía.`}</div></div>`;
+    } else {
+      const cards = rawItems.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((it) => renderFoodCard(it, mode)).join('');
+      list = `<div class="items-list">${cards}</div>`;
+    }
   } else {
-    const items = filterAndSort(rawItems);
-    const cards = items.length
-      ? items.map((it, i) => renderItemCard(it, mode, i)).join('')
-      : `<div class="empty-state small"><div class="empty-emoji">🔎</div><div>Nada coincide con "${escapeHtml(state.search)}"</div></div>`;
-    list = renderListControls(rawItems.length) + `<div class="items-list">${cards}</div>`;
+    const rawItems = mode === 'mine' ? myItems() : partnerItems();
+    if (rawItems.length === 0) {
+      list = `<div class="empty-state"><div class="empty-emoji">${mode === 'mine' ? '📝' : '🎁'}</div>
+        <div>${mode === 'mine' ? 'Aún no agregaste nada.<br/>Toca + para empezar.' : `${escapeHtml(partnerName)} no tiene deseos todavía.`}</div></div>`;
+    } else {
+      const items = filterAndSort(rawItems);
+      const cards = items.length
+        ? items.map((it, i) => renderItemCard(it, mode, i)).join('')
+        : `<div class="empty-state small"><div class="empty-emoji">🔎</div><div>Nada coincide con "${escapeHtml(state.search)}"</div></div>`;
+      list = renderListControls(rawItems.length) + `<div class="items-list">${cards}</div>`;
+    }
   }
   const profile = PROFILES[state.session];
+  const dashSub = section === 'food'
+    ? (mode === 'mine' ? 'Tus comidas favoritas' : `Las comidas favoritas de ${escapeHtml(partnerName)}`)
+    : (mode === 'mine' ? 'Estos son tus deseos' : `Los deseos de ${escapeHtml(partnerName)}`);
   return `<div class="screen-dashboard">
     <div class="dash-header"><div>
       <div class="dash-greeting">Hola, ${escapeHtml(profile.name)} ${profile.emoji}</div>
-      <div class="dash-sub">${mode === 'mine' ? 'Estos son tus deseos' : `Los deseos de ${escapeHtml(partnerName)}`}</div>
+      <div class="dash-sub">${dashSub}</div>
     </div><button class="logout-btn" data-action="logout">⏻</button></div>
+    <div class="tabs">
+      <button class="tab-btn ${section === 'gifts' ? 'active' : ''}" data-action="section" data-section="gifts">🎁 Regalos</button>
+      <button class="tab-btn ${section === 'food' ? 'active' : ''}" data-action="section" data-section="food">🍽️ Comida</button>
+    </div>
     <div class="tabs">
       <button class="tab-btn ${mode === 'mine' ? 'active' : ''}" data-action="tab" data-tab="mine">Mi lista</button>
       <button class="tab-btn ${mode === 'partner' ? 'active' : ''}" data-action="tab" data-tab="partner">${escapeHtml(partnerName)}</button>
     </div>${list}
-    ${mode === 'mine' ? `<button class="fab" data-action="add">+</button>` : ''}
+    ${mode === 'mine' ? `<button class="fab" data-action="${section === 'food' ? 'add-food' : 'add'}">+</button>` : ''}
     <div class="bottom-nav">
       <button class="nav-item ${mode === 'mine' ? 'active' : ''}" data-action="tab" data-tab="mine"><span class="nav-icon">🏠</span>Mi lista</button>
       <button class="nav-item ${mode === 'partner' ? 'active' : ''}" data-action="tab" data-tab="partner"><span class="nav-icon">💌</span>${escapeHtml(partnerName)}</button>
@@ -453,8 +545,29 @@ function renderImageField(item, uploading) {
   </div>`;
 }
 
+function renderFoodSheet() {
+  const { mode, item } = state.sheet;
+  return `<div class="sheet-overlay" data-action="sheet-overlay"><div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">${mode === 'add' ? 'Nueva comida' : 'Editar comida'}</div>
+    <form id="food-form">
+      <div class="field"><label>¿Qué comida te gusta?</label>
+        <input type="text" id="field-food-name" name="name" placeholder="Ej. Milanesa con papas" value="${escapeHtml(item.name)}" required maxlength="120" /></div>
+      <div class="field"><label>Notas (opcional)</label>
+        <textarea id="field-food-note" name="note" placeholder="Sin cebolla, bien picante..." maxlength="300">${escapeHtml(item.note)}</textarea></div>
+      <div class="sheet-actions">
+        <button type="button" class="btn btn-secondary" data-action="sheet-cancel">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar</button>
+      </div>
+      ${mode === 'edit' ? `<div class="sheet-actions" style="margin-top:10px">
+        <button type="button" class="btn btn-danger-text" data-action="sheet-delete" data-id="${item.id}">Eliminar comida</button></div>` : ''}
+    </form>
+  </div></div>`;
+}
+
 function renderSheet() {
   if (!state.sheet) return '';
+  if (state.sheet.kind === 'food') return renderFoodSheet();
   const { mode, item, uploading } = state.sheet;
   return `<div class="sheet-overlay" data-action="sheet-overlay"><div class="sheet">
     <div class="sheet-handle"></div>
@@ -532,8 +645,22 @@ function bindEvents() {
       elm.addEventListener('click', logout);
     } else if (action === 'tab') {
       elm.addEventListener('click', () => switchTab(elm.getAttribute('data-tab')));
+    } else if (action === 'section') {
+      elm.addEventListener('click', () => switchSection(elm.getAttribute('data-section')));
     } else if (action === 'add') {
       elm.addEventListener('click', openAddSheet);
+    } else if (action === 'add-food') {
+      elm.addEventListener('click', openAddFoodSheet);
+    } else if (action === 'edit-food') {
+      elm.addEventListener('click', () => {
+        const item = myFoodItems().find((it) => it.id === elm.getAttribute('data-id'));
+        if (item) openEditFoodSheet(item);
+      });
+    } else if (action === 'delete-food') {
+      elm.addEventListener('click', () => {
+        const id = elm.getAttribute('data-id');
+        openConfirm('¿Eliminar esta comida? No se puede deshacer.', () => deleteFoodItem(id));
+      });
     } else if (action === 'edit') {
       elm.addEventListener('click', () => {
         const item = myItems().find((it) => it.id === elm.getAttribute('data-id'));
@@ -547,7 +674,11 @@ function bindEvents() {
     } else if (action === 'sheet-delete') {
       elm.addEventListener('click', () => {
         const id = elm.getAttribute('data-id');
-        openConfirm('¿Eliminar este deseo? No se puede deshacer.', () => deleteItem(id));
+        if (state.sheet && state.sheet.kind === 'food') {
+          openConfirm('¿Eliminar esta comida? No se puede deshacer.', () => deleteFoodItem(id));
+        } else {
+          openConfirm('¿Eliminar este deseo? No se puede deshacer.', () => deleteItem(id));
+        }
       });
     } else if (action === 'confirm-yes') {
       elm.addEventListener('click', () => {
@@ -605,6 +736,15 @@ function bindEvents() {
         url: fd.get('url'),
         image: state.sheet.item.image || (typeof imageUrlField === 'string' ? imageUrlField : ''),
       });
+    });
+  }
+
+  const foodForm = root.querySelector('#food-form');
+  if (foodForm) {
+    foodForm.addEventListener('submit', (evt) => {
+      evt.preventDefault();
+      const fd = new FormData(foodForm);
+      saveFoodSheet({ name: fd.get('name'), note: fd.get('note') });
     });
   }
 }
