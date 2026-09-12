@@ -6,16 +6,13 @@
 
 // El meta viewport (user-scalable=no) no alcanza en iOS Safari: desde hace
 // años ignora esa directiva por accesibilidad, así que hay que bloquear el
-// pellizco para hacer zoom explícitamente a mano.
+// pellizco (dos dedos) a mano. El doble-toque para zoom ya lo bloquea
+// "touch-action: manipulation" en el CSS, sin necesitar JS: un bloqueo por
+// temporizador aquí terminaba confundiendo toques rápidos y seguidos
+// (como tipear un PIN) con dobles-toques, y cancelaba esos toques.
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('gesturechange', (e) => e.preventDefault());
-let lastTouchEnd = 0;
 document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
-document.addEventListener('touchend', (e) => {
-  const now = Date.now();
-  if (now - lastTouchEnd <= 300) e.preventDefault();
-  lastTouchEnd = now;
-}, { passive: false });
 
 const root = document.getElementById('app');
 
