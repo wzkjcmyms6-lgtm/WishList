@@ -174,13 +174,13 @@ function deleteDigit() {
   if (!state.pinBuffer.length) return;
   state.pinBuffer = state.pinBuffer.slice(0, -1);
   state.pinError = false;
-  render();
+  updatePinDots();
 }
 
 function pressDigit(d) {
   if (state.pinBuffer.length >= 4) return;
   state.pinBuffer += d;
-  render();
+  updatePinDots();
   if (state.pinBuffer.length === 4) {
     const profile = state.pinTarget;
     if (state.pinBuffer === profile.pin) {
@@ -191,8 +191,8 @@ function pressDigit(d) {
       render();
     } else {
       state.pinError = true;
-      render();
-      setTimeout(() => { state.pinBuffer = ''; state.pinError = false; render(); }, 450);
+      updatePinDots();
+      setTimeout(() => { state.pinBuffer = ''; state.pinError = false; updatePinDots(); }, 450);
     }
   }
 }
@@ -350,13 +350,22 @@ function renderLoginProfiles() {
   </div>`;
 }
 
-function renderPinScreen() {
-  const p = state.pinTarget;
-  const dots = [0, 1, 2, 3].map((i) => {
+function renderPinDots() {
+  return [0, 1, 2, 3].map((i) => {
     const filled = i < state.pinBuffer.length;
     const cls = state.pinError ? 'error' : (filled ? 'filled' : '');
     return `<div class="pin-dot ${cls}"></div>`;
   }).join('');
+}
+
+function updatePinDots() {
+  const dotsEl = root.querySelector('.pin-dots');
+  if (dotsEl) dotsEl.innerHTML = renderPinDots();
+}
+
+function renderPinScreen() {
+  const p = state.pinTarget;
+  const dots = renderPinDots();
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'];
   const keypad = keys.map((k) => {
     if (k === '') return `<div></div>`;
