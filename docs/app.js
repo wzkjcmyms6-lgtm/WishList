@@ -21,11 +21,22 @@ const PROFILES = {
   manolo: { id: 'manolo', name: 'Manuelito', pin: '0701', emoji: '🐻', theme: 'blue' },
 };
 
+const TASTE_CATEGORIES = [
+  { key: 'flowers', label: '🌸 Flores favoritas', placeholder: 'Ej. Rosas rosadas, girasoles...' },
+  { key: 'colors', label: '🎨 Colores favoritos', placeholder: 'Ej. Rosa, celeste...' },
+  { key: 'perfume', label: '💐 Perfume / Fragancia', placeholder: 'Marca o aroma preferido' },
+  { key: 'sweets', label: '🍫 Dulces / Postre favorito', placeholder: 'Ej. Chocolate amargo, tiramisú...' },
+  { key: 'clothing', label: '👗 Talla de ropa', placeholder: 'Ej. Talla M, pantalón 28...' },
+  { key: 'accessories', label: '💍 Accesorios', placeholder: 'Aretes, pulseras, anillos...' },
+  { key: 'notes', label: '✨ Otros gustos', placeholder: 'Cualquier otra cosa que le guste' },
+];
+
 const state = {
   booting: true,
   firestoreError: false,
   items: [],
   foodItems: [],
+  tastes: {},
   session: loadSession(),
   pinTarget: null,
   pinBuffer: '',
@@ -42,14 +53,15 @@ const state = {
 
 let itemsCol = null;
 let foodCol = null;
-let fsAddDoc = null, fsUpdateDoc = null, fsDeleteDoc = null, fsDoc = null;
+let tastesDocRef = null;
+let fsAddDoc = null, fsUpdateDoc = null, fsDeleteDoc = null, fsDoc = null, fsSetDoc = null;
 
 (async () => {
   try {
     const { initializeApp } = await import('https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js');
     const {
       initializeFirestore, persistentLocalCache, collection,
-      doc, addDoc, updateDoc, deleteDoc, onSnapshot,
+      doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot,
     } = await import('https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js');
 
     const firebaseConfig = {
@@ -65,7 +77,8 @@ let fsAddDoc = null, fsUpdateDoc = null, fsDeleteDoc = null, fsDoc = null;
     const db = initializeFirestore(firebaseApp, { localCache: persistentLocalCache() });
     itemsCol = collection(db, 'wishlist_items');
     foodCol = collection(db, 'food_items');
-    fsAddDoc = addDoc; fsUpdateDoc = updateDoc; fsDeleteDoc = deleteDoc; fsDoc = doc;
+    tastesDocRef = doc(db, 'preferences', 'lentina');
+    fsAddDoc = addDoc; fsUpdateDoc = updateDoc; fsDeleteDoc = deleteDoc; fsDoc = doc; fsSetDoc = setDoc;
 
     onSnapshot(
       itemsCol,
@@ -85,6 +98,18 @@ let fsAddDoc = null, fsUpdateDoc = null, fsDeleteDoc = null, fsDoc = null;
       foodCol,
       (snap) => {
         state.foodItems = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        render();
+      },
+      () => {
+        state.firestoreError = true;
+        render();
+      }
+    );
+
+    onSnapshot(
+      tastesDocRef,
+      (snap) => {
+        state.tastes = snap.exists() ? snap.data() : {};
         render();
       },
       () => {
@@ -342,6 +367,18 @@ async function deleteFoodItem(id) {
   }
 }
 
+async function saveTastes(formData) {
+  if (!fsSetDoc || !tastesDocRef) { showToast('Sin conexión a la base de datos'); return; }
+  const payload = {};
+  TASTE_CATEGORIES.forEach((c) => { payload[c.key] = (formData[c.key] || '').trim().slice(0, 300); });
+  try {
+    await fsSetDoc(tastesDocRef, payload, { merge: true });
+    showToast('Guardado 💐');
+  } catch (e) {
+    showToast('No se pudo guardar. Revisá tu conexión.');
+  }
+}
+
 async function toggleReserve(item) {
   try {
     await fsUpdateDoc(fsDoc(itemsCol, item.id), {
@@ -415,6 +452,23 @@ function renderFoodCard(item, mode) {
   </div>`;
 }
 
+function renderTastesPanel() {
+  const t = state.tastes || {};
+  const fields = TASTE_CATEGORIES.map((cat) => `
+    <div class="field">
+      <label>${cat.label}</label>
+      <textarea name="${cat.key}" placeholder="${escapeHtml(cat.placeholder)}" maxlength="300">${escapeHtml(t[cat.key])}</textarea>
+    </div>`).join('');
+  return `<div class="tastes-panel">
+    <form id="tastes-form">
+      ${fields}
+      <div class="sheet-actions">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+      </div>
+    </form>
+  </div>`;
+}
+
 function renderBootScreen() { return `<div class="screen-boot"><div class="boot-spinner"></div></div>`; }
 
 function renderLoginProfiles() {
@@ -480,10 +534,13 @@ function renderListControls(count) {
 
 function renderDashboard() {
   const mode = state.activeTab;
-  const section = state.activeSection;
+  let section = state.activeSection;
+  if (section === 'tastes' && state.session !== 'manolo') section = 'gifts';
   const partnerName = PROFILES[partnerId()].name;
   let list;
-  if (section === 'food') {
+  if (section === 'tastes') {
+    list = renderTastesPanel();
+  } else if (section === 'food') {
     const rawItems = mode === 'mine' ? myFoodItems() : partnerFoodItems();
     if (rawItems.length === 0) {
       list = `<div class="empty-state"><div class="empty-emoji">🍽️</div>
@@ -506,9 +563,11 @@ function renderDashboard() {
     }
   }
   const profile = PROFILES[state.session];
-  const dashSub = section === 'food'
-    ? (mode === 'mine' ? 'Tus comidas favoritas' : `Las comidas favoritas de ${escapeHtml(partnerName)}`)
-    : (mode === 'mine' ? 'Estos son tus deseos' : `Los deseos de ${escapeHtml(partnerName)}`);
+  const dashSub = section === 'tastes'
+    ? `Notas sobre los gustos de ${escapeHtml(partnerName)}`
+    : section === 'food'
+      ? (mode === 'mine' ? 'Tus comidas favoritas' : `Las comidas favoritas de ${escapeHtml(partnerName)}`)
+      : (mode === 'mine' ? 'Estos son tus deseos' : `Los deseos de ${escapeHtml(partnerName)}`);
   return `<div class="screen-dashboard">
     <div class="dash-header"><div>
       <div class="dash-greeting">Hola, ${escapeHtml(profile.name)} ${profile.emoji}</div>
@@ -517,12 +576,13 @@ function renderDashboard() {
     <div class="tabs">
       <button class="tab-btn ${section === 'gifts' ? 'active' : ''}" data-action="section" data-section="gifts">🎁 Regalos</button>
       <button class="tab-btn ${section === 'food' ? 'active' : ''}" data-action="section" data-section="food">🍽️ Comida</button>
+      ${state.session === 'manolo' ? `<button class="tab-btn ${section === 'tastes' ? 'active' : ''}" data-action="section" data-section="tastes">💐 Gustos</button>` : ''}
     </div>
-    <div class="tabs">
+    ${section === 'tastes' ? '' : `<div class="tabs">
       <button class="tab-btn ${mode === 'mine' ? 'active' : ''}" data-action="tab" data-tab="mine">Mi lista</button>
       <button class="tab-btn ${mode === 'partner' ? 'active' : ''}" data-action="tab" data-tab="partner">${escapeHtml(partnerName)}</button>
-    </div>${list}
-    ${mode === 'mine' ? `<button class="fab" data-action="${section === 'food' ? 'add-food' : 'add'}">+</button>` : ''}
+    </div>`}${list}
+    ${section !== 'tastes' && mode === 'mine' ? `<button class="fab" data-action="${section === 'food' ? 'add-food' : 'add'}">+</button>` : ''}
     <div class="bottom-nav">
       <button class="nav-item ${mode === 'mine' ? 'active' : ''}" data-action="tab" data-tab="mine"><span class="nav-icon">🏠</span>Mi lista</button>
       <button class="nav-item ${mode === 'partner' ? 'active' : ''}" data-action="tab" data-tab="partner"><span class="nav-icon">💌</span>${escapeHtml(partnerName)}</button>
@@ -749,6 +809,17 @@ function bindEvents() {
       evt.preventDefault();
       const fd = new FormData(foodForm);
       saveFoodSheet({ name: fd.get('name'), restaurant: fd.get('restaurant'), note: fd.get('note') });
+    });
+  }
+
+  const tastesForm = root.querySelector('#tastes-form');
+  if (tastesForm) {
+    tastesForm.addEventListener('submit', (evt) => {
+      evt.preventDefault();
+      const fd = new FormData(tastesForm);
+      const formData = {};
+      TASTE_CATEGORIES.forEach((c) => { formData[c.key] = fd.get(c.key); });
+      saveTastes(formData);
     });
   }
 }
