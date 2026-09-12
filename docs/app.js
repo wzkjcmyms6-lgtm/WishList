@@ -35,6 +35,7 @@ const state = {
   sheet: null,
   confirm: null,
   toast: null,
+  lightboxImage: null,
 };
 
 let itemsCol = null;
@@ -295,9 +296,17 @@ async function toggleReserve(item) {
 function openConfirm(message, onConfirm) { state.confirm = { message, onConfirm }; render(); }
 function closeConfirm() { state.confirm = null; render(); }
 
+function openLightbox(id) {
+  const item = state.items.find((it) => it.id === id);
+  if (!item || !item.image) return;
+  state.lightboxImage = item.image;
+  render();
+}
+function closeLightbox() { state.lightboxImage = null; render(); }
+
 // ---------- Render ----------
 function itemThumb(item) {
-  if (item.image) return `<div class="item-thumb"><img src="${escapeHtml(item.image)}" alt="" onerror="this.parentElement.innerHTML='🎁'"/></div>`;
+  if (item.image) return `<button type="button" class="item-thumb" data-action="view-image" data-id="${item.id}"><img src="${escapeHtml(item.image)}" alt="" onerror="this.parentElement.innerHTML='🎁'"/></button>`;
   return `<div class="item-thumb">🎁</div>`;
 }
 function themeClass(theme) { return theme === 'blue' ? 'theme-blue' : 'theme-pink'; }
@@ -481,6 +490,14 @@ function renderConfirmDialog() {
   </div></div>`;
 }
 
+function renderLightbox() {
+  if (!state.lightboxImage) return '';
+  return `<div class="lightbox-overlay" data-action="lightbox-overlay">
+    <button type="button" class="lightbox-close" data-action="lightbox-close">✕</button>
+    <img class="lightbox-img" src="${escapeHtml(state.lightboxImage)}" alt="" />
+  </div>`;
+}
+
 function render() {
   let html = '';
   if (state.booting) {
@@ -494,6 +511,7 @@ function render() {
   }
   html += renderSheet();
   html += renderConfirmDialog();
+  html += renderLightbox();
   if (state.toast) html += `<div class="toast">${escapeHtml(state.toast)}</div>`;
   root.innerHTML = html;
   bindEvents();
@@ -565,6 +583,12 @@ function bindEvents() {
       elm.addEventListener('change', () => handleImageFile(elm.files[0]));
     } else if (action === 'remove-image') {
       elm.addEventListener('click', removeSheetImage);
+    } else if (action === 'view-image') {
+      elm.addEventListener('click', () => openLightbox(elm.getAttribute('data-id')));
+    } else if (action === 'lightbox-close') {
+      elm.addEventListener('click', closeLightbox);
+    } else if (action === 'lightbox-overlay') {
+      elm.addEventListener('click', (evt) => { if (evt.target === elm) closeLightbox(); });
     }
   });
 
