@@ -157,6 +157,12 @@ function filterAndSort(items) {
 // ---------- Actions ----------
 function openPin(profile) { state.pinTarget = profile; state.pinBuffer = ''; state.pinError = false; render(); }
 function backToProfiles() { state.pinTarget = null; state.pinBuffer = ''; state.pinError = false; render(); }
+function deleteDigit() {
+  if (!state.pinBuffer.length) return;
+  state.pinBuffer = state.pinBuffer.slice(0, -1);
+  state.pinError = false;
+  render();
+}
 
 function pressDigit(d) {
   if (state.pinBuffer.length >= 4) return;
@@ -479,8 +485,10 @@ function bindEvents() {
     const action = elm.getAttribute('data-action');
     if (action === 'open-pin') {
       elm.addEventListener('click', () => openPin(PROFILES[elm.getAttribute('data-id')]));
-    } else if (action === 'pin-cancel' || action === 'pin-back') {
+    } else if (action === 'pin-cancel') {
       elm.addEventListener('click', backToProfiles);
+    } else if (action === 'pin-back') {
+      elm.addEventListener('click', deleteDigit);
     } else if (action === 'pin-digit') {
       elm.addEventListener('click', () => pressDigit(elm.getAttribute('data-digit')));
     } else if (action === 'logout') {

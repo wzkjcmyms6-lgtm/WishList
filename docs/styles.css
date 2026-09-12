@@ -1,4 +1,4 @@
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 
 :root {
   --cream: #FBF3E7;
