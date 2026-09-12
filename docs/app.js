@@ -37,7 +37,7 @@ const state = {
   items: [],
   foodItems: [],
   tastes: {},
-  session: loadSession(),
+  session: null,
   pinTarget: null,
   pinBuffer: '',
   pinError: false,
@@ -123,21 +123,6 @@ let fsAddDoc = null, fsUpdateDoc = null, fsDeleteDoc = null, fsDoc = null, fsSet
     render();
   }
 })();
-
-function loadSession() {
-  try {
-    const raw = localStorage.getItem('wishlist_session_v1');
-    return raw ? JSON.parse(raw) : null;
-  } catch (e) { return null; }
-}
-function saveSession(profileId) {
-  state.session = profileId;
-  try { localStorage.setItem('wishlist_session_v1', JSON.stringify(profileId)); } catch (e) {}
-}
-function clearSession() {
-  state.session = null;
-  try { localStorage.removeItem('wishlist_session_v1'); } catch (e) {}
-}
 
 function showToast(msg) {
   state.toast = msg;
@@ -225,7 +210,7 @@ function pressDigit(d) {
   if (state.pinBuffer.length === 4) {
     const profile = state.pinTarget;
     if (state.pinBuffer === profile.pin) {
-      saveSession(profile.id);
+      state.session = profile.id;
       state.pinTarget = null;
       state.pinBuffer = '';
       state.activeTab = 'mine';
@@ -239,7 +224,7 @@ function pressDigit(d) {
 }
 
 function logout() {
-  clearSession();
+  state.session = null;
   state.activeTab = 'mine';
   state.search = '';
   state.sortBy = 'recent';
