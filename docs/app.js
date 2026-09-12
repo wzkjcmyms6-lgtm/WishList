@@ -844,7 +844,8 @@ function setupSheetDrag() {
     if (!dragging) return;
     dragging = false;
     sheetEl.style.transition = 'transform 0.2s ease';
-    if (dragY > 90) {
+    const threshold = sheetEl.offsetHeight * 0.6;
+    if (dragY > threshold) {
       sheetEl.style.transform = 'translateY(100%)';
       setTimeout(closeSheet, 180);
     } else {
