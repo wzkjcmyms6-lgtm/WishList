@@ -171,7 +171,7 @@ function partnerItems() { const pid = partnerId(); return state.items.filter((it
 function myFoodItems() { return state.foodItems.filter((it) => it.owner === state.session); }
 function partnerFoodItems() { const pid = partnerId(); return state.foodItems.filter((it) => it.owner === pid); }
 
-function filterAndSort(items) {
+function filterAndSort(items, sinkReserved) {
   const q = state.search.trim().toLowerCase();
   let result = q ? items.filter((it) => it.title.toLowerCase().includes(q)) : items.slice();
   function priceValue(it) {
@@ -189,6 +189,9 @@ function filterAndSort(items) {
     });
   } else {
     result.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  }
+  if (sinkReserved) {
+    result.sort((a, b) => (a.reserved ? 1 : 0) - (b.reserved ? 1 : 0));
   }
   return result;
 }
@@ -412,7 +415,8 @@ function renderItemCard(item, mode, index) {
     extra = `<button class="reserve-btn" data-action="reserve" data-id="${item.id}">🎁 Yo lo regalo</button>`;
   }
   const delay = Math.min(index || 0, 8) * 0.05;
-  return `<div class="item-card card-enter" style="animation-delay:${delay}s">
+  const ownerTheme = themeClass(PROFILES[mode === 'mine' ? state.session : partnerId()].theme);
+  return `<div class="item-card card-enter ${ownerTheme}" style="animation-delay:${delay}s">
     ${itemThumb(item)}
     <div class="item-body">
       <div class="item-title">${escapeHtml(item.title)}</div>
@@ -464,7 +468,7 @@ function renderLoginProfiles() {
       <div class="profile-hint">Toca para entrar</div></div>
     </button>`).join('');
   return `<div class="screen-login">
-    <div class="login-title">Nuestra<br/>Wishlist 💫</div>
+    <div class="login-title">Nuestra<br/><span class="accent">Wishlist</span> 💫</div>
     <div class="login-subtitle">Elige tu perfil para entrar</div>
     <div class="profile-cards">${cards}</div>
   </div>`;
@@ -540,7 +544,7 @@ function renderDashboard() {
       list = `<div class="empty-state"><div class="empty-emoji">${mode === 'mine' ? '📝' : '🎁'}</div>
         <div>${mode === 'mine' ? 'Aún no agregaste nada.<br/>Toca + para empezar.' : `${escapeHtml(partnerName)} no tiene deseos todavía.`}</div></div>`;
     } else {
-      const items = filterAndSort(rawItems);
+      const items = filterAndSort(rawItems, mode === 'partner');
       const cards = items.length
         ? items.map((it, i) => renderItemCard(it, mode, i)).join('')
         : `<div class="empty-state small"><div class="empty-emoji">🔎</div><div>Nada coincide con "${escapeHtml(state.search)}"</div></div>`;
