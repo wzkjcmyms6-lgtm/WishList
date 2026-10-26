@@ -2,7 +2,7 @@
 
 import { auth, onAuthStateChanged } from './firebase.js';
 import {
-  estado, PERFILES, CATEGORIAS_GUSTOS, ETIQUETAS, pareja, perfilDeCorreo,
+  estado, PERFILES, CATEGORIAS_GUSTOS, ETIQUETAS, pareja, nombreDe, perfilDeCorreo,
   misDeseos, misComidas,
 } from './estado.js';
 import {
@@ -13,7 +13,10 @@ import { hoy, esFechaValida } from './fechas.js';
 import * as sesion from './auth.js';
 import * as datos from './datos.js';
 import { dibujarInicio } from './secciones/inicio.js';
-import { dibujarDiario, dibujarHojaEntrada, cargarMiniaturas } from './secciones/diario.js';
+import {
+  dibujarDiario, dibujarHojaEntrada, cargarMiniaturas, dibujarCalendario,
+} from './secciones/diario.js';
+import { dibujarPregunta, preguntaDeHoy } from './secciones/pregunta.js';
 import { dibujarDeseos, dibujarHojaDeseo } from './secciones/deseos.js';
 import { dibujarComidas, dibujarHojaComida } from './secciones/comida.js';
 import { dibujarGustos } from './secciones/gustos.js';
@@ -44,13 +47,14 @@ function dibujarErrorConexion() {
 
 function dibujarPanel() {
   const perfil = PERFILES[estado.sesion];
-  const nombrePareja = PERFILES[pareja()].nombre;
+  const nombrePareja = nombreDe(pareja());
   const seccion = estado.seccion;
   const enLista = SECCIONES_LISTA.includes(seccion);
 
   let contenido;
   if (seccion === 'inicio') contenido = dibujarInicio();
-  else if (seccion === 'diario') contenido = dibujarDiario();
+  else if (seccion === 'diario') contenido = estado.verCalendario ? dibujarCalendario() : dibujarDiario();
+  else if (seccion === 'pregunta') contenido = dibujarPregunta();
   else if (seccion === 'ajustes') contenido = dibujarAjustes();
   else if (seccion === 'gustos') contenido = dibujarGustos();
   else if (seccion === 'comida') contenido = dibujarComidas();
@@ -58,7 +62,8 @@ function dibujarPanel() {
 
   const bajadas = {
     inicio: 'Lo nuestro, de un vistazo',
-    diario: 'Nuestros recuerdos',
+    diario: estado.verCalendario ? 'Nuestro calendario' : 'Nuestros recuerdos',
+    pregunta: 'Para conocernos más',
     ajustes: 'Tu cuenta y este celular',
     gustos: `Lo que le gusta a ${escapar(nombrePareja)}`,
     comida: estado.pestana === 'mia' ? 'Tus comidas favoritas' : `Las comidas de ${escapar(nombrePareja)}`,
@@ -79,7 +84,7 @@ function dibujarPanel() {
   </div>` : '';
 
   let fab = '';
-  if (seccion === 'diario') fab = '<button class="fab" data-accion="nueva-entrada">+</button>';
+  if (seccion === 'diario' && !estado.verCalendario) fab = '<button class="fab" data-accion="nueva-entrada">+</button>';
   else if (enLista && seccion !== 'gustos' && estado.pestana === 'mia') {
     fab = `<button class="fab" data-accion="${seccion === 'comida' ? 'nueva-comida' : 'nuevo-deseo'}">+</button>`;
   }
@@ -87,6 +92,7 @@ function dibujarPanel() {
   const navegacion = [
     { clave: 'inicio', icono: '🏠', texto: 'Inicio' },
     { clave: 'diario', icono: '📖', texto: 'Diario' },
+    { clave: 'pregunta', icono: '💬', texto: 'Pregunta' },
     { clave: 'deseos', icono: '🎁', texto: 'Deseos' },
     { clave: 'ajustes', icono: '⚙️', texto: 'Ajustes' },
   ].map((item) => {
@@ -98,7 +104,7 @@ function dibujarPanel() {
   return `<div class="screen-dashboard">
     <div class="dash-header">
       <div>
-        <div class="dash-greeting">Hola, ${escapar(perfil.nombre)} ${perfil.emoji}</div>
+        <div class="dash-greeting">Hola, ${escapar(nombreDe(estado.sesion))} ${perfil.emoji}</div>
         <div class="dash-sub">${bajadas[seccion] || ''}</div>
       </div>
     </div>
@@ -526,7 +532,9 @@ const acciones = {
     estado.seccion = elemento.dataset.seccion;
     estado.busqueda = '';
     estado.orden = 'recientes';
+    estado.verCalendario = false;
     dibujar();
+    if (estado.seccion === 'pregunta') cargarRespuestasDelOtro();
   },
   'pestana': (elemento) => {
     estado.pestana = elemento.dataset.pestana;
@@ -614,6 +622,50 @@ const acciones = {
     datos.escucharDatos(dibujar);
   },
 
+  'ver-comentarios': async (elemento) => {
+    const id = elemento.dataset.id;
+    if (estado.comentariosAbiertos === id) {
+      estado.comentariosAbiertos = '';
+      dibujar();
+      return;
+    }
+    estado.comentariosAbiertos = id;
+    dibujar();
+    try {
+      estado.comentarios[id] = await datos.traerComentarios(id);
+      dibujar();
+    } catch (e) {
+      avisarYRedibujar('No se pudieron cargar los comentarios');
+    }
+  },
+  'borrar-comentario': async (elemento) => {
+    const { id, comentario } = elemento.dataset;
+    try {
+      await datos.borrarComentario(id, comentario);
+      estado.comentarios[id] = await datos.traerComentarios(id);
+      dibujar();
+    } catch (e) {
+      avisarYRedibujar('No se pudo borrar el comentario');
+    }
+  },
+
+  'ver-calendario': () => {
+    estado.verCalendario = true;
+    estado.diaElegido = '';
+    estado.mesCalendario = estado.mesCalendario || hoy().slice(0, 7);
+    dibujar();
+    cargarMes();
+  },
+  'mes-anterior': () => moverMes(-1),
+  'mes-siguiente': () => moverMes(1),
+  'elegir-dia': (elemento) => {
+    estado.diaElegido = estado.diaElegido === elemento.dataset.fecha ? '' : elemento.dataset.fecha;
+    dibujar();
+  },
+
+  'editar-respuesta': () => { estado.editandoRespuesta = true; dibujar(); },
+  'editar-gracias': () => { estado.editandoGracias = true; dibujar(); },
+
   'nuevo-deseo': () => abrirHoja('deseo', 'nuevo', deseoVacio()),
   'nueva-comida': () => abrirHoja('comida', 'nuevo', comidaVacia()),
   'editar-deseo': (elemento) => {
@@ -685,6 +737,38 @@ const acciones = {
   },
   'confirmar-no': () => { estado.confirmacion = null; dibujar(); },
 };
+
+// La respuesta del otro se pide de a una: las reglas solo la dan cuando ya
+// existe la tuya de ese día, así que una consulta de todas fallaría entera.
+async function cargarRespuestasDelOtro() {
+  const fechas = [hoy(), ...estado.misRespuestas.map((r) => r.date)];
+  const unicas = [...new Set(fechas)].slice(0, 16);
+  let hubo = false;
+  for (const fecha of unicas) {
+    if (estado.respuestasDelOtro[fecha] !== undefined && estado.respuestasDelOtro[fecha] !== 'oculta') continue;
+    estado.respuestasDelOtro[fecha] = await datos.traerRespuestaDelOtro(fecha);
+    hubo = true;
+  }
+  if (hubo && estado.seccion === 'pregunta') dibujar();
+}
+
+async function cargarMes() {
+  try {
+    estado.entradasDelMes = await datos.traerMes(estado.mesCalendario);
+  } catch (e) {
+    estado.entradasDelMes = [];
+  }
+  if (estado.verCalendario) dibujar();
+}
+
+function moverMes(cuantos) {
+  const [anio, mes] = estado.mesCalendario.split('-').map(Number);
+  const fecha = new Date(Date.UTC(anio, mes - 1 + cuantos, 1));
+  estado.mesCalendario = `${fecha.getUTCFullYear()}-${String(fecha.getUTCMonth() + 1).padStart(2, '0')}`;
+  estado.diaElegido = '';
+  dibujar();
+  cargarMes();
+}
 
 async function cambiarReserva(id) {
   const deseo = estado.deseos.find((d) => d.id === id);
@@ -799,6 +883,73 @@ function conectarEventos() {
     formClaveNueva.addEventListener('submit', (evento) => {
       evento.preventDefault();
       cambiarClave(formClaveNueva);
+    });
+  }
+
+  const formRespuesta = raiz.querySelector('#form-respuesta');
+  if (formRespuesta) {
+    formRespuesta.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      const texto = String(new FormData(formRespuesta).get('texto') || '').trim().slice(0, 2000);
+      if (!texto) { avisarYRedibujar('Escribe tu respuesta'); return; }
+      try {
+        await datos.guardarRespuesta(hoy(), preguntaDeHoy().texto, texto);
+        estado.editandoRespuesta = false;
+        avisarYRedibujar('Respondido 💬');
+        cargarRespuestasDelOtro();
+      } catch (e) {
+        avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
+      }
+    });
+  }
+
+  const formGracias = raiz.querySelector('#form-gracias');
+  if (formGracias) {
+    formGracias.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      const texto = String(new FormData(formGracias).get('texto') || '').trim().slice(0, 200);
+      if (!texto) { avisarYRedibujar('Escribe algo'); return; }
+      try {
+        await datos.guardarGracias(hoy(), texto);
+        estado.editandoGracias = false;
+        avisarYRedibujar('Guardado 💛');
+      } catch (e) {
+        avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
+      }
+    });
+  }
+
+  raiz.querySelectorAll('.comentario-form').forEach((formulario) => {
+    formulario.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      const id = formulario.dataset.entrada;
+      const texto = String(new FormData(formulario).get('texto') || '').trim().slice(0, 500);
+      if (!texto) return;
+      try {
+        await datos.comentar(id, texto);
+        estado.comentarios[id] = await datos.traerComentarios(id);
+        dibujar();
+      } catch (e) {
+        avisarYRedibujar('No se pudo comentar');
+      }
+    });
+  });
+
+  const formApodos = raiz.querySelector('#form-apodos');
+  if (formApodos) {
+    formApodos.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      const campos = new FormData(formApodos);
+      const apodos = {
+        lentina: String(campos.get('lentina') || '').trim().slice(0, 30),
+        manolo: String(campos.get('manolo') || '').trim().slice(0, 30),
+      };
+      try {
+        await datos.guardarAjustes({ apodos });
+        avisarYRedibujar('Apodos guardados 💛');
+      } catch (e) {
+        avisarYRedibujar('No se pudo guardar');
+      }
     });
   }
 

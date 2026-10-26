@@ -1,8 +1,8 @@
 // Sección Diario: la línea de tiempo de recuerdos y la hoja para escribir.
 
-import { estado, PERFILES, ETIQUETAS, ANIMOS, REACCIONES } from '../estado.js';
+import { estado, PERFILES, ETIQUETAS, ANIMOS, REACCIONES, nombreDe } from '../estado.js';
 import { escapar, claseTema } from '../ui.js';
-import { comoTitulo, enPalabras, hoy } from '../fechas.js';
+import { comoTitulo, enPalabras, hoy, nombreDelMes } from '../fechas.js';
 import { traerMiniatura } from '../datos.js';
 
 export function entradasVisibles() {
@@ -20,7 +20,7 @@ export function entradasVisibles() {
 
 function firma(entrada) {
   const perfil = PERFILES[entrada.autor] || PERFILES.lentina;
-  return `<span class="entrada-autor ${claseTema(perfil.tema)}">${perfil.emoji} ${escapar(perfil.nombre)}</span>`;
+  return `<span class="entrada-autor ${claseTema(perfil.tema)}">${perfil.emoji} ${escapar(nombreDe(entrada.autor))}</span>`;
 }
 
 function dibujarFotos(entrada) {
@@ -41,7 +41,7 @@ function dibujarReacciones(entrada) {
 
   const mostradas = puestas.length
     ? `<div class="entrada-reacciones-puestas">${puestas.map(([quien, emoji]) =>
-        `<span class="reaccion-puesta" title="${escapar(PERFILES[quien]?.nombre || '')}">${emoji}</span>`).join('')}</div>`
+        `<span class="reaccion-puesta" title="${escapar(nombreDe(quien))}">${emoji}</span>`).join('')}</div>`
     : '';
 
   if (entrada.autor === estado.sesion) return mostradas;
@@ -79,7 +79,95 @@ function tarjetaEntrada(entrada, esBorrador) {
     ${entrada.lugar ? `<div class="entrada-lugar">📍 ${escapar(entrada.lugar)}</div>` : ''}
     ${etiquetas ? `<div class="entrada-etiquetas">${etiquetas}</div>` : ''}
     ${esBorrador ? '' : dibujarReacciones(entrada)}
+    ${esBorrador ? '' : dibujarComentarios(entrada)}
   </article>`;
+}
+
+function dibujarComentarios(entrada) {
+  const abiertos = estado.comentariosAbiertos === entrada.id;
+  const lista = estado.comentarios[entrada.id] || [];
+  const cuantos = lista.length;
+
+  const boton = `<button class="comentarios-boton" data-accion="ver-comentarios" data-id="${entrada.id}">
+    💬 ${abiertos ? 'Ocultar' : (cuantos ? `${cuantos} comentario${cuantos === 1 ? '' : 's'}` : 'Comentar')}
+  </button>`;
+
+  if (!abiertos) return `<div class="entrada-pie">${boton}</div>`;
+
+  const burbujas = lista.map((comentario) => {
+    const perfil = PERFILES[comentario.autor] || PERFILES.lentina;
+    const propio = comentario.autor === estado.sesion;
+    return `<div class="comentario">
+      <span class="comentario-autor ${claseTema(perfil.tema)}">${perfil.emoji}</span>
+      <div class="comentario-texto">${escapar(comentario.texto)}</div>
+      ${propio ? `<button class="comentario-borrar" data-accion="borrar-comentario"
+                   data-id="${entrada.id}" data-comentario="${comentario.id}">✕</button>` : ''}
+    </div>`;
+  }).join('');
+
+  return `<div class="entrada-pie">
+    ${boton}
+    <div class="comentarios">
+      ${burbujas || '<div class="ajuste-nota">Todavía no hay comentarios.</div>'}
+      <form class="comentario-form" data-entrada="${entrada.id}">
+        <input type="text" name="texto" maxlength="500" required placeholder="Escribe un comentario…" />
+        <button type="submit" class="btn btn-secondary">Enviar</button>
+      </form>
+    </div>
+  </div>`;
+}
+
+// ---------- Calendario ----------
+
+export function dibujarCalendario() {
+  const mes = estado.mesCalendario || hoy().slice(0, 7);
+  const [anio, numeroMes] = mes.split('-').map(Number);
+  const primerDia = new Date(Date.UTC(anio, numeroMes - 1, 1)).getUTCDay();
+  const diasDelMes = new Date(Date.UTC(anio, numeroMes, 0)).getUTCDate();
+
+  const porDia = {};
+  estado.entradasDelMes.forEach((entrada) => {
+    porDia[entrada.fecha] = (porDia[entrada.fecha] || 0) + 1;
+  });
+
+  const nombres = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
+    .map((d) => `<div class="calendario-nombre">${d}</div>`).join('');
+
+  let celdas = '';
+  for (let i = 0; i < primerDia; i += 1) celdas += '<div></div>';
+  for (let dia = 1; dia <= diasDelMes; dia += 1) {
+    const fecha = `${mes}-${String(dia).padStart(2, '0')}`;
+    const cuantas = porDia[fecha] || 0;
+    const esHoy = fecha === hoy();
+    const elegido = estado.diaElegido === fecha;
+    celdas += `<button class="calendario-dia ${cuantas ? 'con-recuerdos' : ''} ${esHoy ? 'es-hoy' : ''} ${elegido ? 'elegido' : ''}"
+      ${cuantas ? `data-accion="elegir-dia" data-fecha="${fecha}"` : ''}>
+      <span>${dia}</span>
+      ${cuantas ? '<span class="calendario-punto"></span>' : ''}
+    </button>`;
+  }
+
+  const delDia = estado.diaElegido
+    ? estado.entradasDelMes
+        .filter((e) => e.fecha === estado.diaElegido)
+        .map((e) => tarjetaEntrada(e, false))
+        .join('')
+    : '';
+
+  return `<div class="calendario">
+    <div class="calendario-cabecera">
+      <button class="calendario-flecha" data-accion="mes-anterior">‹</button>
+      <div class="calendario-mes">${nombreDelMes(`${mes}-01`)} ${anio}</div>
+      <button class="calendario-flecha" data-accion="mes-siguiente">›</button>
+    </div>
+    <div class="calendario-grilla">${nombres}${celdas}</div>
+    ${estado.diaElegido
+      ? `<div class="calendario-dia-elegido">
+          <div class="diario-fecha">${escapar(comoTitulo(estado.diaElegido))}</div>
+          ${delDia}
+        </div>`
+      : '<div class="ajuste-nota">Los días con un puntito tienen recuerdos. Tócalos para verlos.</div>'}
+  </div>`;
 }
 
 function filtros() {
@@ -102,7 +190,10 @@ function filtros() {
       <input type="text" id="campo-busqueda-diario" class="search-input" data-accion="buscar-diario"
              placeholder="Buscar en los recuerdos..." value="${escapar(estado.busquedaDiario)}" />
     </div>
-    <div class="sort-chips">${fichasAutor}</div>
+    <div class="sort-chips">
+      ${fichasAutor}
+      <button class="sort-chip" data-accion="ver-calendario">📅 Calendario</button>
+    </div>
     <div class="sort-chips">${fichasEtiqueta}</div>
   </div>`;
 }

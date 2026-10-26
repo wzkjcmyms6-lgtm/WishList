@@ -3,9 +3,10 @@
 
 import {
   db, collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
-  getDoc, query, orderBy, limit, where,
+  getDoc, getDocs, query, orderBy, limit, where,
 } from './firebase.js';
 import { estado } from './estado.js';
+import { hoy as fechaDeHoy } from './fechas.js';
 
 const deseosCol = collection(db, 'wishlist_items');
 const comidasCol = collection(db, 'food_items');
@@ -14,6 +15,8 @@ const entradasCol = collection(db, 'entries');
 const borradoresCol = collection(db, 'drafts');
 const fotosCol = collection(db, 'photos');
 const fotosGrandesCol = collection(db, 'photo_files');
+const respuestasCol = collection(db, 'answers');
+const graciasCol = collection(db, 'gratitude');
 const ajustesDoc = doc(db, 'settings', 'couple');
 
 let cortarEscuchas = [];
@@ -40,6 +43,22 @@ export function escucharDatos(alCambiar) {
 
   escuchar(ajustesDoc, (snap) => {
     estado.ajustes = snap.exists() ? snap.data() : {};
+    alCambiar();
+  });
+
+  escuchar(query(respuestasCol, where('autor', '==', estado.sesion)), (snap) => {
+    estado.misRespuestas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    alCambiar();
+  });
+
+  const otro = estado.sesion === 'lentina' ? 'manolo' : 'lentina';
+  const deHoy = fechaDeHoy();
+  escuchar(doc(graciasCol, `${deHoy}_${estado.sesion}`), (snap) => {
+    estado.graciasHoy.mia = snap.exists() ? snap.data().texto : null;
+    alCambiar();
+  });
+  escuchar(doc(graciasCol, `${deHoy}_${otro}`), (snap) => {
+    estado.graciasHoy.suya = snap.exists() ? snap.data().texto : null;
     alCambiar();
   });
 
@@ -136,14 +155,18 @@ export function borrarBorrador(id) {
 
 async function guardarFotos(idEntrada, fotos) {
   const ids = [];
+  let bytes = 0;
   for (let i = 0; i < fotos.length; i += 1) {
     const foto = fotos[i];
+    const peso = foto.mini.length + foto.grande.length;
+    bytes += peso;
     const referencia = await addDoc(fotosCol, {
       autor: estado.sesion,
       entryId: idEntrada,
       orden: i,
       ancho: foto.ancho,
       alto: foto.alto,
+      bytes: peso,
       mini: foto.mini,
       createdAt: Date.now(),
     });
@@ -154,6 +177,7 @@ async function guardarFotos(idEntrada, fotos) {
     });
     ids.push(referencia.id);
   }
+  if (ids.length) await contarFotos(ids.length, bytes);
   return ids;
 }
 
@@ -165,8 +189,11 @@ export async function borrarFotos(ids) {
 
 async function borrarFoto(id) {
   try {
+    const instantanea = await getDoc(doc(fotosCol, id));
+    const bytes = instantanea.exists() ? (instantanea.data().bytes || 0) : 0;
     await deleteDoc(doc(fotosGrandesCol, id));
     await deleteDoc(doc(fotosCol, id));
+    await contarFotos(-1, -bytes);
   } catch (e) {
     // Si ya no estaba, no hay nada que hacer.
   }
@@ -187,10 +214,89 @@ export async function traerFotoGrande(id) {
   return instantanea.exists() ? instantanea.data().grande : null;
 }
 
+// ---------- Comentarios ----------
+
+export async function traerComentarios(idEntrada) {
+  const snap = await getDocs(query(collection(db, 'entries', idEntrada, 'comments'), orderBy('createdAt', 'asc')));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export function comentar(idEntrada, texto) {
+  return addDoc(collection(db, 'entries', idEntrada, 'comments'), {
+    autor: estado.sesion,
+    texto,
+    createdAt: Date.now(),
+  });
+}
+
+export function borrarComentario(idEntrada, idComentario) {
+  return deleteDoc(doc(db, 'entries', idEntrada, 'comments', idComentario));
+}
+
+// ---------- Calendario ----------
+
+export async function traerMes(anioMes) {
+  const snap = await getDocs(query(
+    entradasCol,
+    where('fecha', '>=', `${anioMes}-01`),
+    where('fecha', '<=', `${anioMes}-31`),
+  ));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ---------- Pregunta del día ----------
+// Un documento por persona y día. Las reglas solo dejan leer la respuesta del
+// otro cuando ya existe la tuya, así que acá se pide y se acepta el "no".
+
+export function guardarRespuesta(fecha, pregunta, texto) {
+  return setDoc(doc(respuestasCol, `${fecha}_${estado.sesion}`), {
+    autor: estado.sesion,
+    date: fecha,
+    pregunta,
+    texto,
+    createdAt: Date.now(),
+  });
+}
+
+export async function traerRespuestaDelOtro(fecha) {
+  const otro = estado.sesion === 'lentina' ? 'manolo' : 'lentina';
+  try {
+    const instantanea = await getDoc(doc(respuestasCol, `${fecha}_${otro}`));
+    return instantanea.exists() ? instantanea.data().texto : null;
+  } catch (e) {
+    // permission-denied: respondió, pero todavía no te toca verla.
+    return 'oculta';
+  }
+}
+
+// ---------- Gracias del día ----------
+
+export function guardarGracias(fecha, texto) {
+  return setDoc(doc(graciasCol, `${fecha}_${estado.sesion}`), {
+    autor: estado.sesion,
+    date: fecha,
+    texto,
+    createdAt: Date.now(),
+  });
+}
+
 // ---------- Ajustes ----------
 
 export function guardarAjustes(datos) {
   return setDoc(ajustesDoc, datos, { merge: true });
+}
+
+// Cuánto espacio llevan las fotos, para avisar antes de llegar al 1 GiB del
+// plan gratis. Se lleva como contador porque sumarlo de verdad obligaría a
+// descargar todas las fotos cada vez.
+function contarFotos(cuantas, bytes) {
+  const previo = estado.ajustes.almacenamiento || { fotos: 0, bytes: 0 };
+  return guardarAjustes({
+    almacenamiento: {
+      fotos: Math.max(0, (previo.fotos || 0) + cuantas),
+      bytes: Math.max(0, (previo.bytes || 0) + bytes),
+    },
+  });
 }
 
 // ---------- Deseos y comida ----------

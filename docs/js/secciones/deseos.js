@@ -1,7 +1,7 @@
 // Sección Deseos: la wishlist de siempre. Cada quien ve la suya para editarla
 // y la de la pareja para reservar en secreto.
 
-import { estado, PERFILES, pareja, misDeseos, deseosDeLaPareja } from '../estado.js';
+import { estado, PERFILES, pareja, nombreDe, misDeseos, deseosDeLaPareja } from '../estado.js';
 import { escapar, formatearPrecio, claseTema } from '../ui.js';
 
 function valorPrecio(deseo) {
@@ -104,7 +104,7 @@ function controles(cuantos) {
 export function dibujarDeseos() {
   const modo = estado.pestana;
   const lista = modo === 'mia' ? misDeseos() : deseosDeLaPareja();
-  const nombrePareja = PERFILES[pareja()].nombre;
+  const nombrePareja = nombreDe(pareja());
 
   if (lista.length === 0) {
     return `<div class="empty-state">

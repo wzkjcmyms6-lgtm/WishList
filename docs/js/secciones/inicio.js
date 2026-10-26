@@ -1,6 +1,6 @@
 // Pantalla de Inicio: lo nuestro de un vistazo.
 
-import { estado, PERFILES, pareja } from '../estado.js';
+import { estado, PERFILES, pareja, nombreDe } from '../estado.js';
 import { escapar, claseTema } from '../ui.js';
 import {
   hoy, diasEntre, enDias, comoTitulo, enPalabras, mismoDiaYMes, proximaVez, esFechaValida,
@@ -64,7 +64,7 @@ function bloqueUnDiaComoHoy() {
     return `<button class="recuerdo" data-accion="ir-diario">
       <div class="recuerdo-cuando">Hace ${anios} ${anios === 1 ? 'año' : 'años'}</div>
       <div class="recuerdo-texto">${escapar(String(entrada.texto || '').slice(0, 120))}</div>
-      <div class="recuerdo-autor ${claseTema(perfil.tema)}">${perfil.emoji} ${escapar(perfil.nombre)}</div>
+      <div class="recuerdo-autor ${claseTema(perfil.tema)}">${perfil.emoji} ${escapar(nombreDe(entrada.autor))}</div>
     </button>`;
   }).join('');
 
@@ -84,7 +84,7 @@ function bloqueUltimas() {
       ? `${escapar(String(entrada.texto || '').slice(0, 90))}${String(entrada.texto || '').length > 90 ? '…' : ''}`
       : '<span class="inicio-vacio">Todavía no escribió nada</span>';
     return `<button class="ultima" data-accion="ir-diario">
-      <div class="ultima-autor ${claseTema(perfil.tema)}">${perfil.emoji} ${escapar(perfil.nombre)}</div>
+      <div class="ultima-autor ${claseTema(perfil.tema)}">${perfil.emoji} ${escapar(nombreDe(quien))}</div>
       <div class="ultima-texto">${texto}</div>
       ${entrada ? `<div class="ultima-cuando">${escapar(comoTitulo(entrada.fecha))}</div>` : ''}
     </button>`;

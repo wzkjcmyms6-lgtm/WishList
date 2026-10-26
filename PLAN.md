@@ -50,7 +50,7 @@ viejas no quedan huérfanas: los documentos guardan `autor` con el perfil
 
 ---
 
-## Fase 1 — El diario 🟡
+## Fase 1 — El diario ✅
 
 **Primera entrega (hecha):** línea de tiempo agrupada por fecha con autor,
 ánimo, etiquetas, lugar y hasta 6 fotos; fecha editable para cargar recuerdos
@@ -64,9 +64,20 @@ Ajustes). Fotos comprimidas en el celular en dos tamaños (miniatura de 400 px
 dentro de `photos`, grande de 1280 px aparte en `photo_files`), y la miniatura
 se pide recién cuando la tarjeta está en pantalla.
 
-**Falta:** pregunta del día con su banco de 150+, gracias del día, comentarios,
-vista calendario, apodos y colores en Ajustes, espacio usado, y el manifest con
-los íconos para instalarla en el iPhone.
+**Segunda entrega (hecha):** pregunta del día con un banco de 155 preguntas
+(la del día sale de la fecha, así los dos ven la misma y no se repite hasta
+terminar la vuelta); cada uno responde por su lado y la del otro se destraba
+recién cuando respondes la tuya, impuesto por las reglas del servidor y no por
+la pantalla; historial de respuestas; gracias del día; comentarios en cada
+recuerdo; vista calendario con puntitos en los días con recuerdos; apodos y
+espacio usado en Ajustes; manifest, íconos de 180/192/512 y las instrucciones
+para agregarla a la pantalla de inicio del iPhone.
+
+**Detalle técnico del destrabe:** las respuestas van en un documento por
+persona y día (`answers/AAAA-MM-DD_perfil`) y la del otro se pide de a una con
+`getDoc`, aceptando el "no" cuando todavía no corresponde. Una consulta de
+todas fallaría entera, porque Firestore evalúa las reglas contra cada
+documento que devolvería.
 
 
 

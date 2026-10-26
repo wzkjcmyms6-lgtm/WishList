@@ -1,6 +1,6 @@
 // Sección Comida: las comidas favoritas de cada uno, con restaurante opcional.
 
-import { estado, PERFILES, pareja, misComidas, comidasDeLaPareja } from '../estado.js';
+import { estado, PERFILES, pareja, nombreDe, misComidas, comidasDeLaPareja } from '../estado.js';
 import { escapar, claseTema } from '../ui.js';
 
 function tarjetaComida(comida, modo) {
@@ -24,7 +24,7 @@ function tarjetaComida(comida, modo) {
 export function dibujarComidas() {
   const modo = estado.pestana;
   const lista = modo === 'mia' ? misComidas() : comidasDeLaPareja();
-  const nombrePareja = PERFILES[pareja()].nombre;
+  const nombrePareja = nombreDe(pareja());
 
   if (lista.length === 0) {
     return `<div class="empty-state">

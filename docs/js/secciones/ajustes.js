@@ -2,9 +2,55 @@
 // En la Fase 1 se le suman la fecha de inicio, las fechas especiales, los
 // apodos y el espacio usado.
 
-import { estado, PERFILES } from '../estado.js';
+import { estado, PERFILES, pareja, nombreDe } from '../estado.js';
 import { escapar } from '../ui.js';
 import { tienePin } from '../auth.js';
+
+// 1 GiB es lo que da el plan gratis de Firestore.
+const LIMITE = 1024 * 1024 * 1024;
+
+// Si ya la abrieron desde el ícono de inicio, no hace falta explicar nada.
+function yaEstaInstalada() {
+  return window.navigator.standalone === true
+    || window.matchMedia('(display-mode: standalone)').matches;
+}
+
+function bloqueInstalar() {
+  if (yaEstaInstalada()) return '';
+  return `<div class="ajuste-bloque">
+    <div class="ajuste-titulo">Tenerla como app</div>
+    <div class="ajuste-detalle">
+      Para que se abra a pantalla completa, con su ícono y sin la barra del navegador:
+    </div>
+    <ol class="pasos">
+      <li>Abre este sitio en <b>Safari</b> (desde Chrome no se puede).</li>
+      <li>Toca el botón <b>Compartir</b> ⬆️ de abajo.</li>
+      <li>Desliza y elige <b>"Agregar a inicio"</b>.</li>
+    </ol>
+  </div>`;
+}
+
+function bloqueEspacio() {
+  const guardado = estado.ajustes.almacenamiento || { fotos: 0, bytes: 0 };
+  const usado = Math.max(0, guardado.bytes || 0);
+  const porcentaje = Math.min(100, (usado / LIMITE) * 100);
+  const enMegas = (usado / (1024 * 1024)).toFixed(1);
+  const quedan = Math.max(0, Math.round((LIMITE - usado) / (600 * 1024)));
+
+  return `<div class="ajuste-bloque">
+    <div class="ajuste-titulo">Espacio de las fotos</div>
+    <div class="barra"><div class="barra-llena" style="width:${porcentaje.toFixed(2)}%"></div></div>
+    <div class="ajuste-detalle">
+      ${enMegas} MB de 1 GB · ${guardado.fotos || 0} ${(guardado.fotos || 0) === 1 ? 'foto' : 'fotos'}
+    </div>
+    <div class="ajuste-nota">
+      ${porcentaje > 80
+        ? '⚠️ Se está llenando. Avísale a Claude para buscarle la vuelta.'
+        : `Al ritmo de ahora entran unas ${quedan.toLocaleString('es-BO')} fotos más.`}
+      Es un cálculo aproximado.
+    </div>
+  </div>`;
+}
 
 export function dibujarAjustes() {
   const perfil = PERFILES[estado.sesion];
@@ -53,11 +99,33 @@ export function dibujarAjustes() {
     </div>
 
     <div class="ajuste-bloque">
+      <div class="ajuste-titulo">Cómo nos llamamos</div>
+      <form id="form-apodos">
+        <div class="field">
+          <label>${PERFILES.lentina.emoji} Lentina</label>
+          <input type="text" name="lentina" maxlength="30" placeholder="Lentina"
+                 value="${escapar((estado.ajustes.apodos || {}).lentina || '')}" />
+        </div>
+        <div class="field">
+          <label>${PERFILES.manolo.emoji} Manuelito</label>
+          <input type="text" name="manolo" maxlength="30" placeholder="Manuelito"
+                 value="${escapar((estado.ajustes.apodos || {}).manolo || '')}" />
+        </div>
+        <button type="submit" class="btn btn-primary">Guardar los apodos</button>
+      </form>
+      <div class="ajuste-nota">Se usan en toda la app. Déjalos vacíos para volver a los nombres.</div>
+    </div>
+
+    ${bloqueInstalar()}
+
+    ${bloqueEspacio()}
+
+    <div class="ajuste-bloque">
       <div class="ajuste-titulo">Tu cuenta</div>
       <div class="ajuste-fila">
         <div class="ajuste-avatar">${perfil.emoji}</div>
         <div>
-          <div class="ajuste-nombre">${escapar(perfil.nombre)}</div>
+          <div class="ajuste-nombre">${escapar(nombreDe(estado.sesion))}</div>
           <div class="ajuste-detalle">${escapar(perfil.correo)}</div>
         </div>
       </div>

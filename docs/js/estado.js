@@ -62,6 +62,17 @@ export const estado = {
 
   entradas: [],
   borradores: [],
+  misRespuestas: [],        // respuestas mías a la pregunta del día
+  respuestasDelOtro: {},    // fecha -> texto | 'oculta' | null
+  graciasHoy: { mia: null, suya: null },
+  comentarios: {},          // idEntrada -> lista
+  comentariosAbiertos: '',  // idEntrada con los comentarios desplegados
+  mesCalendario: '',        // 'AAAA-MM' cuando se mira el calendario
+  entradasDelMes: [],
+  verCalendario: false,
+  diaElegido: '',
+  editandoRespuesta: false,
+  editandoGracias: false,
   cuantasEntradas: 15,
   hayMasEntradas: false,
   ajustes: {},
@@ -78,6 +89,12 @@ export const estado = {
   aviso: null,
   fotoAmpliada: null,
 };
+
+// El apodo que cada uno eligió en Ajustes, si lo hay.
+export function nombreDe(perfil) {
+  const apodo = (estado.ajustes.apodos || {})[perfil];
+  return (apodo && apodo.trim()) ? apodo.trim() : PERFILES[perfil].nombre;
+}
 
 export function pareja() {
   return estado.sesion === 'lentina' ? 'manolo' : 'lentina';
