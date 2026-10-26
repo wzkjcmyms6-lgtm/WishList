@@ -153,6 +153,22 @@ function bloqueFrasco() {
   </div>`;
 }
 
+function bloqueCartas() {
+  const paraMi = estado.cartas.filter((c) => c.autor !== estado.sesion);
+  const disponibles = paraMi.filter((c) =>
+    (c.tipo === 'motivo' || Date.now() >= (c.abreEnMs || 0)) && !c.abiertaEn);
+
+  const aviso = disponibles.length
+    ? `<span class="cartas-insignia">${disponibles.length}</span>`
+    : '';
+
+  return `<button class="frasco cartas-boton" data-accion="ir-cartas">
+    <span class="frasco-emoji">💌</span>
+    <span>Cartas para abrir después</span>
+    ${aviso}
+  </button>`;
+}
+
 export function dibujarInicio() {
   return `<div class="inicio">
     ${bloqueCelebracion()}
@@ -162,6 +178,7 @@ export function dibujarInicio() {
       <span>Escribir un recuerdo</span>
     </button>
     ${bloqueFrasco()}
+    ${bloqueCartas()}
     ${bloqueProximaFecha()}
     ${bloqueUnDiaComoHoy()}
     ${bloqueUltimas()}

@@ -110,6 +110,37 @@ service cloud.firestore {
       allow update, delete: if somosNosotros() && soyElAutor();
     }
 
+    // ---------- Cartas "ábrela cuando…" ----------
+    // El sobre (quién la escribió, el título y cuándo se abre) se ve siempre.
+    // El texto vive aparte, y el servidor no lo entrega hasta que llegue la
+    // fecha: no alcanza con que la pantalla lo esconda.
+
+    match /letters/{letterId} {
+      allow read:   if somosNosotros();
+      allow create: if somosNosotros() && loCreoComoMio();
+      // Quien la recibe solo puede marcar cuándo la abrió.
+      allow update: if somosNosotros() && (soyElAutor() || soloCambia(['abiertaEn']));
+      allow delete: if somosNosotros() && soyElAutor();
+    }
+
+    match /letter_bodies/{letterId} {
+      allow read: if somosNosotros() && (
+        soyElAutor()
+        || resource.data.abreEnMs == 0
+        || request.time.toMillis() >= resource.data.abreEnMs
+      );
+      allow create: if somosNosotros() && loCreoComoMio();
+      allow update, delete: if somosNosotros() && soyElAutor();
+    }
+
+    // ---------- Nuestros lugares ----------
+
+    match /places/{placeId} {
+      allow read:           if somosNosotros();
+      allow create:         if somosNosotros() && loCreoComoMio();
+      allow update, delete: if somosNosotros() && soyElAutor();
+    }
+
     // ---------- Ajustes compartidos ----------
 
     match /settings/{docId} {

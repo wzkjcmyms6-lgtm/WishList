@@ -77,6 +77,9 @@ export const estado = {
   albumCargando: false,
   visor: null,              // { indice, grande, escala, x, y }
   recuerdoDelFrasco: null,
+  cartas: [],
+  cartaAbierta: null,       // { id, texto | null | 'cerrada' }
+  lugares: [],
   editandoRespuesta: false,
   editandoGracias: false,
   cuantasEntradas: 15,

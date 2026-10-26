@@ -17,6 +17,7 @@ import {
   dibujarDiario, dibujarHojaEntrada, cargarMiniaturas, dibujarCalendario,
 } from './secciones/diario.js';
 import { dibujarAlbum, dibujarVisor } from './secciones/album.js';
+import { dibujarCartas, dibujarCartaAbierta, dibujarHojaCarta } from './secciones/cartas.js';
 import { activarVisor } from './visor.js';
 import { dibujarPregunta, preguntaDeHoy } from './secciones/pregunta.js';
 import { dibujarDeseos, dibujarHojaDeseo } from './secciones/deseos.js';
@@ -61,6 +62,7 @@ function dibujarPanel() {
   if (seccion === 'inicio') contenido = dibujarInicio();
   else if (seccion === 'diario') contenido = vistaDelDiario();
   else if (seccion === 'pregunta') contenido = dibujarPregunta();
+  else if (seccion === 'cartas') contenido = dibujarCartas();
   else if (seccion === 'ajustes') contenido = dibujarAjustes();
   else if (seccion === 'gustos') contenido = dibujarGustos();
   else if (seccion === 'comida') contenido = dibujarComidas();
@@ -70,6 +72,7 @@ function dibujarPanel() {
     inicio: 'Lo nuestro, de un vistazo',
     diario: { lista: 'Nuestros recuerdos', calendario: 'Nuestro calendario', album: 'Todas nuestras fotos' }[estado.vistaDiario],
     pregunta: 'Para conocernos más',
+    cartas: 'Para abrir después',
     ajustes: 'Tu cuenta y este celular',
     gustos: `Lo que le gusta a ${escapar(nombrePareja)}`,
     comida: estado.pestana === 'mia' ? 'Tus comidas favoritas' : `Las comidas de ${escapar(nombrePareja)}`,
@@ -124,6 +127,7 @@ function dibujarPanel() {
 
 function dibujarHoja() {
   if (!estado.hoja) return '';
+  if (estado.hoja.tipo === 'carta') return dibujarHojaCarta();
   if (estado.hoja.tipo === 'entrada') return dibujarHojaEntrada();
   if (estado.hoja.tipo === 'comida') return dibujarHojaComida();
   return dibujarHojaDeseo();
@@ -143,6 +147,7 @@ function dibujar() {
   html += dibujarConfirmacion();
   html += dibujarFotoAmpliada();
   html += dibujarVisor();
+  html += dibujarCartaAbierta();
   html += dibujarAviso();
 
   raiz.innerHTML = html;
@@ -289,6 +294,7 @@ async function abrirHojaEntrada(modo, entrada) {
 // Guarda lo escrito antes de redibujar, para no perderlo al subir una foto.
 function sincronizarHoja() {
   const formulario = raiz.querySelector('#form-entrada')
+    || raiz.querySelector('#form-carta')
     || raiz.querySelector('#form-deseo')
     || raiz.querySelector('#form-comida');
   if (!formulario || !estado.hoja) return;
@@ -676,6 +682,30 @@ const acciones = {
   'abrir-visor': (elemento) => abrirVisor(Number(elemento.dataset.indice)),
   'cerrar-visor': () => { estado.visor = null; dibujar(); },
   'sacar-recuerdo': () => sacarDelFrasco(),
+  'ir-cartas': () => { estado.seccion = 'cartas'; dibujar(); },
+  'volver-inicio': () => { estado.seccion = 'inicio'; dibujar(); },
+  'nueva-carta': () => abrirHoja('carta', 'nuevo', {
+    titulo: '', texto: '', tipo: 'motivo', motivo: 'cualquiera', abreEn: '',
+  }),
+  'tipo-carta': (elemento) => {
+    sincronizarHoja();
+    estado.hoja.item.tipo = elemento.dataset.valor;
+    dibujar();
+  },
+  'elegir-motivo': (elemento) => {
+    sincronizarHoja();
+    estado.hoja.item.motivo = elemento.dataset.valor;
+    dibujar();
+  },
+  'abrir-carta': (elemento) => abrirCarta(elemento.dataset.id),
+  'cerrar-carta': () => { estado.cartaAbierta = null; dibujar(); },
+  'borrar-carta': (elemento) => {
+    const id = elemento.dataset.id;
+    preguntar('¿Borrar esta carta? No se puede deshacer.', async () => {
+      try { await datos.borrarCarta(id); avisarYRedibujar('Carta borrada'); }
+      catch (e) { avisarYRedibujar('No se pudo borrar'); }
+    });
+  },
   'guardar-frasco': () => { estado.recuerdoDelFrasco = null; dibujar(); },
   'mes-anterior': () => moverMes(-1),
   'mes-siguiente': () => moverMes(1),
@@ -823,6 +853,19 @@ function cambiarFotoDelVisor(direccion) {
   abrirVisor(siguiente);
 }
 
+async function abrirCarta(id) {
+  estado.cartaAbierta = { id, texto: null };
+  dibujar();
+  const carta = estado.cartas.find((c) => c.id === id);
+  const texto = await datos.traerTextoDeCarta(id);
+  if (!estado.cartaAbierta || estado.cartaAbierta.id !== id) return;
+  estado.cartaAbierta.texto = texto;
+  dibujar();
+  if (texto && texto !== 'cerrada' && carta && !carta.abiertaEn && carta.autor !== estado.sesion) {
+    try { await datos.marcarCartaAbierta(id); } catch (e) { /* no pasa nada */ }
+  }
+}
+
 async function sacarDelFrasco() {
   const desde = esFechaValida(estado.ajustes.inicio) ? estado.ajustes.inicio : '2020-01-01';
   try {
@@ -885,6 +928,13 @@ function conectarEventos() {
     }
     if (accion === 'archivo-entrada') {
       elemento.addEventListener('change', () => elegirFotosEntrada(elemento.files));
+      return;
+    }
+
+    if (accion === 'carta-fondo') {
+      elemento.addEventListener('click', (evento) => {
+        if (evento.target === elemento) { estado.cartaAbierta = null; dibujar(); }
+      });
       return;
     }
 
@@ -1032,6 +1082,39 @@ function conectarEventos() {
         avisarYRedibujar('Apodos guardados 💛');
       } catch (e) {
         avisarYRedibujar('No se pudo guardar');
+      }
+    });
+  }
+
+  const formCarta = raiz.querySelector('#form-carta');
+  if (formCarta) {
+    formCarta.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      sincronizarHoja();
+      const item = estado.hoja.item;
+      const titulo = String(item.titulo || '').trim().slice(0, 80);
+      const texto = String(item.texto || '').trim().slice(0, 5000);
+      if (!titulo || !texto) { avisarYRedibujar('Faltan el título o el texto'); return; }
+
+      const esPorFecha = item.tipo === 'fecha';
+      if (esPorFecha && !esFechaValida(item.abreEn)) { avisarYRedibujar('Elige el día en que se abre'); return; }
+
+      const sobre = esPorFecha
+        ? {
+            titulo,
+            tipo: 'fecha',
+            abreEn: item.abreEn,
+            // Mediodía de Bolivia: la carta se abre ese día, no la noche antes.
+            abreEnMs: new Date(`${item.abreEn}T16:00:00Z`).getTime(),
+          }
+        : { titulo, tipo: 'motivo', motivo: item.motivo || 'cualquiera', abreEn: '', abreEnMs: 0 };
+
+      try {
+        await datos.crearCarta(sobre, texto);
+        estado.hoja = null;
+        avisarYRedibujar('Carta guardada 💌');
+      } catch (e) {
+        avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
       }
     });
   }

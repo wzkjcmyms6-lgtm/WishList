@@ -17,6 +17,9 @@ const fotosCol = collection(db, 'photos');
 const fotosGrandesCol = collection(db, 'photo_files');
 const respuestasCol = collection(db, 'answers');
 const graciasCol = collection(db, 'gratitude');
+const cartasCol = collection(db, 'letters');
+const cartasTextoCol = collection(db, 'letter_bodies');
+const lugaresCol = collection(db, 'places');
 const ajustesDoc = doc(db, 'settings', 'couple');
 
 let cortarEscuchas = [];
@@ -62,6 +65,16 @@ export function escucharDatos(alCambiar) {
     alCambiar();
   });
 
+  escuchar(cartasCol, (snap) => {
+    estado.cartas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    alCambiar();
+  });
+
+  escuchar(lugaresCol, (snap) => {
+    estado.lugares = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    alCambiar();
+  });
+
   escuchar(deseosCol, (snap) => {
     estado.deseos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     alCambiar();
@@ -87,6 +100,8 @@ export function dejarDeEscuchar() {
   cortarEscuchas = [];
   estado.entradas = [];
   estado.borradores = [];
+  estado.cartas = [];
+  estado.lugares = [];
   estado.deseos = [];
   estado.comidas = [];
   estado.gustos = {};
@@ -308,6 +323,54 @@ export function guardarGracias(fecha, texto) {
     texto,
     createdAt: Date.now(),
   });
+}
+
+// ---------- Cartas ----------
+// El sobre y el texto van en documentos separados: así el servidor puede
+// entregar uno y negar el otro hasta que llegue la fecha.
+
+export async function crearCarta(sobre, texto) {
+  const referencia = await addDoc(cartasCol, {
+    ...sobre,
+    autor: estado.sesion,
+    abiertaEn: null,
+    createdAt: Date.now(),
+  });
+  await setDoc(doc(cartasTextoCol, referencia.id), {
+    autor: estado.sesion,
+    abreEnMs: sobre.abreEnMs,
+    texto,
+  });
+  return referencia.id;
+}
+
+export async function borrarCarta(id) {
+  await deleteDoc(doc(cartasTextoCol, id));
+  await deleteDoc(doc(cartasCol, id));
+}
+
+export function marcarCartaAbierta(id) {
+  return updateDoc(doc(cartasCol, id), { abiertaEn: Date.now() });
+}
+
+export async function traerTextoDeCarta(id) {
+  try {
+    const instantanea = await getDoc(doc(cartasTextoCol, id));
+    return instantanea.exists() ? instantanea.data().texto : null;
+  } catch (e) {
+    // permission-denied: todavía no llegó la fecha.
+    return 'cerrada';
+  }
+}
+
+// ---------- Lugares ----------
+
+export function crearLugar(datos) {
+  return addDoc(lugaresCol, { ...datos, autor: estado.sesion, createdAt: Date.now() });
+}
+
+export function borrarLugar(id) {
+  return deleteDoc(doc(lugaresCol, id));
 }
 
 // ---------- Ajustes ----------
