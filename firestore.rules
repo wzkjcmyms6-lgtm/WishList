@@ -1,0 +1,131 @@
+// Reglas de Firestore de Ositos.
+//
+// Cómo se pegan: consola de Firebase → Firestore Database → pestaña "Reglas" →
+// borrar todo lo que haya → pegar esto → "Publicar".
+//
+// Los dos UID de abajo no son secretos: son identificadores públicos. Sin la
+// contraseña de la cuenta no sirven para entrar.
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function uidLentina()   { return 'PEGAR_UID_LENTINA'; }
+    function uidManuelito() { return 'PEGAR_UID_MANUELITO'; }
+
+    // Solo nosotros dos, y con sesión iniciada.
+    function somosNosotros() {
+      return request.auth != null
+        && request.auth.uid in [uidLentina(), uidManuelito()];
+    }
+
+    // Los deseos y comidas guardan el perfil ('lentina' / 'manolo'), no el UID.
+    function miPerfil() {
+      return request.auth.uid == uidLentina() ? 'lentina' : 'manolo';
+    }
+
+    function soyElAutor()  { return request.auth.uid == resource.data.authorUid; }
+    function loCreoComoMio() { return request.resource.data.authorUid == request.auth.uid; }
+
+    // true si la edición toca únicamente los campos de la lista.
+    function soloCambia(campos) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
+    }
+
+    // ---------- Diario ----------
+
+    match /entries/{entryId} {
+      // Un borrador lo ve solo quien lo escribió.
+      allow read:   if somosNosotros() && (resource.data.isDraft != true || soyElAutor());
+      allow create: if somosNosotros() && loCreoComoMio();
+      // El otro solo puede tocar las reacciones; el resto, solo el autor.
+      allow update: if somosNosotros() && (soyElAutor() || soloCambia(['reactions']));
+      allow delete: if somosNosotros() && soyElAutor();
+
+      match /comments/{commentId} {
+        allow read:           if somosNosotros();
+        allow create:         if somosNosotros() && loCreoComoMio();
+        allow update, delete: if somosNosotros() && soyElAutor();
+      }
+    }
+
+    // Miniatura + datos de cada foto.
+    match /photos/{photoId} {
+      allow read:           if somosNosotros();
+      allow create:         if somosNosotros() && loCreoComoMio();
+      allow update, delete: if somosNosotros() && soyElAutor();
+    }
+
+    // Foto en tamaño grande, en documento aparte para no descargarla de más.
+    match /photo_files/{photoId} {
+      allow read:           if somosNosotros();
+      allow create:         if somosNosotros() && loCreoComoMio();
+      allow update, delete: if somosNosotros() && soyElAutor();
+    }
+
+    // ---------- Pregunta del día ----------
+    // Un documento por persona y día, con id "AAAA-MM-DD_uid".
+    // La respuesta del otro recién se puede leer cuando ya existe la tuya: esto
+    // lo impone el servidor, no la pantalla.
+
+    match /answers/{answerId} {
+      allow read: if somosNosotros() && (
+        resource.data.uid == request.auth.uid
+        || exists(/databases/$(database)/documents/answers/$(resource.data.date + '_' + request.auth.uid))
+      );
+      allow create: if somosNosotros()
+        && request.resource.data.uid == request.auth.uid
+        && answerId == request.resource.data.date + '_' + request.auth.uid;
+      allow update: if somosNosotros() && resource.data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ---------- Gracias del día ----------
+
+    match /gratitude/{gratitudeId} {
+      allow read: if somosNosotros();
+      allow create: if somosNosotros()
+        && request.resource.data.uid == request.auth.uid
+        && gratitudeId == request.resource.data.date + '_' + request.auth.uid;
+      allow update, delete: if somosNosotros() && resource.data.uid == request.auth.uid;
+    }
+
+    // ---------- Ajustes compartidos ----------
+
+    match /settings/{docId} {
+      allow read, write: if somosNosotros();
+    }
+
+    // ---------- Deseos (la wishlist de siempre) ----------
+
+    match /wishlist_items/{itemId} {
+      allow read:   if somosNosotros();
+      allow create: if somosNosotros() && request.resource.data.owner == miPerfil();
+      // El dueño edita lo suyo; el otro solo puede reservar o soltar la reserva.
+      allow update: if somosNosotros() && (
+        resource.data.owner == miPerfil()
+        || soloCambia(['reserved', 'reservedBy'])
+      );
+      allow delete: if somosNosotros() && resource.data.owner == miPerfil();
+    }
+
+    match /food_items/{itemId} {
+      allow read:           if somosNosotros();
+      allow create:         if somosNosotros() && request.resource.data.owner == miPerfil();
+      allow update, delete: if somosNosotros() && resource.data.owner == miPerfil();
+    }
+
+    // ---------- Gustos de Lentina ----------
+    // Es la chuleta de regalos de Manuelito: Lentina no lo lee ni lo escribe.
+
+    match /preferences/lentina {
+      allow read, write: if request.auth != null && request.auth.uid == uidManuelito();
+    }
+
+    // Todo lo que no esté nombrado arriba queda cerrado.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
