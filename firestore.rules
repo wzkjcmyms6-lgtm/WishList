@@ -12,7 +12,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function uidLentina()   { return 'cwGgB950fxRGy5r8lFlFql7dvqa2'; }
-    function uidManuelito() { return 'SbaebyW6I5htL0tSDrgoVDHzfIi2'; }
+    function uidManuelito() { return 'PDmXQTigCrfzU7q7aYPrTRx1Lgw1'; }
 
     // Solo nosotros dos, y con sesión iniciada.
     function somosNosotros() {
