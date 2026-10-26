@@ -19,14 +19,21 @@ Objetivo: que el diario sea de verdad privado antes de que haya fotos y textos
 | ✅ | Crear proyecto Firebase `ositos-e6e10` (Spark), Firestore (southamerica-east1) y Authentication por correo | Juan |
 | ✅ | Crear las 2 cuentas: `lentina@ositos.local` y `manuelito@ositos.local` | Juan |
 | ✅ | Reglas probadas con el emulador (41 pruebas en verde) | Claude |
-| 🟡 | Pegar las reglas en la consola | Juan |
-| 🟡 | Arreglar el acceso de Manuelito con `docs/cuenta.html` | Juan |
+| ✅ | Pegar las reglas en la consola | Juan |
+| ✅ | Arreglar el acceso de Manuelito con `docs/cuenta.html` | Juan |
 | ❌ | ~~Migrar los datos viejos~~ — **cancelada por decisión de Juan.** El diario arranca vacío. Los datos siguen intactos en `elita---ejercicios` por si algún día se quieren recuperar | — |
-| ⬜ | Reorganizar el código en `docs/js/` | Claude |
-| ⬜ | Login real con Firebase Auth, recordado en cada celular; PIN local como candado rápido (hasheado, nunca en el código) | Claude |
-| ⬜ | Botón "Cambiar contraseña" en Ajustes (evita tener que recrear la cuenta) | Claude |
-| ⬜ | README nuevo sin PIN, con qué es y cómo instalarlo en el iPhone | Claude |
-| ⬜ | Borrar `docs/cuenta.html` cuando el acceso funcione | Claude |
+| ✅ | Reorganizar el código en `docs/js/` (`firebase`, `estado`, `ui`, `auth`, `datos` y una sección por pantalla) | Claude |
+| ✅ | Login real con Firebase Auth, recordado en cada celular; PIN local como candado rápido (SHA-256 con sal, solo en ese celular) | Claude |
+| ✅ | Botón "Cambiar contraseña" en Ajustes (evita tener que recrear la cuenta) | Claude |
+| ✅ | README nuevo sin PIN, con qué es y cómo instalarlo en el iPhone | Claude |
+| 🟡 | Probar en el iPhone | Juan |
+| ⬜ | Borrar `docs/cuenta.html` cuando Juan confirme que la app entra bien | Claude |
+
+**Pruebas automáticas de la Fase 0:** 41 casos de las reglas contra el emulador
+de Firestore, y 29 casos de la app entera en un navegador real a 390×844
+(entrar, PIN, crear deseos, reservar, comida, ajustes, recargar y cambiar de
+persona) con un Firebase simulado, porque el entorno de Claude tiene bloqueado
+`gstatic.com` y no puede hablar con el Firebase real.
 
 **Por qué un proyecto nuevo:** en Firestore las reglas se combinan con OR, así que
 la regla abierta que necesita la app "Elita – Mis Ejercicios" dejaría abierto
