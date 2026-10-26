@@ -34,29 +34,51 @@ export function avisar(mensaje, volverARenderizar) {
 
 // Achica la foto en el celular antes de guardarla: Firestore acepta 1 MiB por
 // documento y una foto de iPhone pesa mucho más.
-export function comprimirFoto(archivo) {
+//
+// El navegador decodifica el HEIC del iPhone y respeta la orientación de la
+// cámara, así que al dibujarla en el lienzo ya sale derecha y como JPEG.
+function cargarImagen(archivo) {
   return new Promise((resolver, rechazar) => {
     const lector = new FileReader();
     lector.onerror = () => rechazar(new Error('No se pudo leer la imagen'));
     lector.onload = () => {
       const imagen = new Image();
-      imagen.onerror = () => rechazar(new Error('Formato de imagen no soportado'));
-      imagen.onload = () => {
-        const maximo = 800;
-        let ancho = imagen.width;
-        let alto = imagen.height;
-        if (ancho > alto && ancho > maximo) { alto = Math.round(alto * (maximo / ancho)); ancho = maximo; }
-        else if (alto > maximo) { ancho = Math.round(ancho * (maximo / alto)); alto = maximo; }
-        const lienzo = document.createElement('canvas');
-        lienzo.width = ancho;
-        lienzo.height = alto;
-        lienzo.getContext('2d').drawImage(imagen, 0, 0, ancho, alto);
-        resolver(lienzo.toDataURL('image/jpeg', 0.62));
-      };
+      imagen.onerror = () => rechazar(new Error('Ese formato de imagen no se puede abrir'));
+      imagen.onload = () => resolver(imagen);
       imagen.src = lector.result;
     };
     lector.readAsDataURL(archivo);
   });
+}
+
+function aMedida(imagen, ladoMaximo, calidad) {
+  let ancho = imagen.width;
+  let alto = imagen.height;
+  if (ancho > alto && ancho > ladoMaximo) { alto = Math.round(alto * (ladoMaximo / ancho)); ancho = ladoMaximo; }
+  else if (alto > ladoMaximo) { ancho = Math.round(ancho * (ladoMaximo / alto)); alto = ladoMaximo; }
+  const lienzo = document.createElement('canvas');
+  lienzo.width = ancho;
+  lienzo.height = alto;
+  lienzo.getContext('2d').drawImage(imagen, 0, 0, ancho, alto);
+  return { datos: lienzo.toDataURL('image/jpeg', calidad), ancho, alto };
+}
+
+export async function comprimirFoto(archivo) {
+  const imagen = await cargarImagen(archivo);
+  const grande = aMedida(imagen, 1280, 0.72);
+  const mini = aMedida(imagen, 400, 0.6);
+  return {
+    grande: grande.datos,
+    mini: mini.datos,
+    ancho: grande.ancho,
+    alto: grande.alto,
+  };
+}
+
+// Para los deseos, que guardan una sola imagen dentro del propio documento.
+export async function comprimirFotoSimple(archivo) {
+  const imagen = await cargarImagen(archivo);
+  return aMedida(imagen, 800, 0.62).datos;
 }
 
 export function dibujarAviso() {
@@ -76,9 +98,12 @@ export function dibujarConfirmacion() {
 
 export function dibujarFotoAmpliada() {
   if (!estado.fotoAmpliada) return '';
+  const cuerpo = estado.fotoAmpliada === 'cargando'
+    ? '<div class="boot-spinner"></div>'
+    : `<img class="lightbox-img" src="${escapar(estado.fotoAmpliada)}" alt="" />`;
   return `<div class="lightbox-overlay" data-accion="foto-fondo">
     <button type="button" class="lightbox-close" data-accion="foto-cerrar">✕</button>
-    <img class="lightbox-img" src="${escapar(estado.fotoAmpliada)}" alt="" />
+    ${cuerpo}
   </div>`;
 }
 

@@ -10,6 +10,7 @@ import {
 import {
   initializeFirestore, persistentLocalCache, collection, doc,
   addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
+  getDoc, getDocs, query, where, orderBy, limit,
 } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 
 // Esta configuración es pública a propósito: va dentro de cualquier app web de
@@ -35,4 +36,5 @@ export {
   signInWithEmailAndPassword, signOut, onAuthStateChanged,
   updatePassword, reauthenticateWithCredential, EmailAuthProvider,
   collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
+  getDoc, getDocs, query, where, orderBy, limit,
 };

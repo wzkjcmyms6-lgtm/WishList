@@ -50,7 +50,25 @@ viejas no quedan huérfanas: los documentos guardan `autor` con el perfil
 
 ---
 
-## Fase 1 — El diario ⬜
+## Fase 1 — El diario 🟡
+
+**Primera entrega (hecha):** línea de tiempo agrupada por fecha con autor,
+ánimo, etiquetas, lugar y hasta 6 fotos; fecha editable para cargar recuerdos
+viejos; borradores que solo ve su autor (en su propia colección `drafts`, porque
+mezclados en `entries` harían que Firestore rechazara la consulta entera);
+reacciones con emoji; búsqueda y filtros por autor y etiqueta; carga por
+páginas de 15; pantalla de Inicio con los días juntos, la próxima fecha
+especial, "Un día como hoy…" y lo último que escribió cada uno; fecha de inicio
+y fechas especiales en Ajustes; navegación nueva (Inicio · Diario · Deseos ·
+Ajustes). Fotos comprimidas en el celular en dos tamaños (miniatura de 400 px
+dentro de `photos`, grande de 1280 px aparte en `photo_files`), y la miniatura
+se pide recién cuando la tarjeta está en pantalla.
+
+**Falta:** pregunta del día con su banco de 150+, gracias del día, comentarios,
+vista calendario, apodos y colores en Ajustes, espacio usado, y el manifest con
+los íconos para instalarla en el iPhone.
+
+
 
 - **Inicio "Nosotros"**: "Llevamos X días juntos", cuenta regresiva a la próxima
   fecha especial, "Un día como hoy…", la pregunta del día, lo último que escribió

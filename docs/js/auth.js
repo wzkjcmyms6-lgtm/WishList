@@ -96,6 +96,26 @@ export function borrarPin(perfil) {
   }
 }
 
+// Si alguien dijo "ahora no", no hay que volver a insistirle en cada apertura.
+const llaveSinPin = (perfil) => `ositos.sinPin.${perfil}`;
+
+export function prefiereSinPin(perfil) {
+  try {
+    return localStorage.getItem(llaveSinPin(perfil)) === '1';
+  } catch (e) {
+    return false;
+  }
+}
+
+export function recordarSinPin(perfil, sinPin) {
+  try {
+    if (sinPin) localStorage.setItem(llaveSinPin(perfil), '1');
+    else localStorage.removeItem(llaveSinPin(perfil));
+  } catch (e) {
+    // sin nada que hacer
+  }
+}
+
 // ---------- Pantallas ----------
 
 export function dibujarPerfiles() {

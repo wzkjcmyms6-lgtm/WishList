@@ -2,15 +2,18 @@
 
 import { auth, onAuthStateChanged } from './firebase.js';
 import {
-  estado, PERFILES, CATEGORIAS_GUSTOS, pareja, perfilDeCorreo,
+  estado, PERFILES, CATEGORIAS_GUSTOS, ETIQUETAS, pareja, perfilDeCorreo,
   misDeseos, misComidas,
 } from './estado.js';
 import {
-  raiz, escapar, avisar, comprimirFoto,
+  raiz, escapar, avisar, comprimirFoto, comprimirFotoSimple,
   dibujarAviso, dibujarConfirmacion, dibujarFotoAmpliada, activarArrastreDeHoja,
 } from './ui.js';
+import { hoy, esFechaValida } from './fechas.js';
 import * as sesion from './auth.js';
 import * as datos from './datos.js';
+import { dibujarInicio } from './secciones/inicio.js';
+import { dibujarDiario, dibujarHojaEntrada, cargarMiniaturas } from './secciones/diario.js';
 import { dibujarDeseos, dibujarHojaDeseo } from './secciones/deseos.js';
 import { dibujarComidas, dibujarHojaComida } from './secciones/comida.js';
 import { dibujarGustos } from './secciones/gustos.js';
@@ -23,6 +26,8 @@ document.addEventListener('gesturechange', (e) => e.preventDefault());
 document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
 const avisarYRedibujar = (mensaje) => avisar(mensaje, dibujar);
+
+const SECCIONES_LISTA = ['deseos', 'comida', 'gustos'];
 
 // ---------- Pantallas ----------
 
@@ -41,65 +46,75 @@ function dibujarPanel() {
   const perfil = PERFILES[estado.sesion];
   const nombrePareja = PERFILES[pareja()].nombre;
   const seccion = estado.seccion;
-  const enAjustes = seccion === 'ajustes';
+  const enLista = SECCIONES_LISTA.includes(seccion);
 
   let contenido;
-  if (enAjustes) contenido = dibujarAjustes();
+  if (seccion === 'inicio') contenido = dibujarInicio();
+  else if (seccion === 'diario') contenido = dibujarDiario();
+  else if (seccion === 'ajustes') contenido = dibujarAjustes();
   else if (seccion === 'gustos') contenido = dibujarGustos();
   else if (seccion === 'comida') contenido = dibujarComidas();
   else contenido = dibujarDeseos();
 
-  const bajada = enAjustes
-    ? 'Tu cuenta y este celular'
-    : seccion === 'gustos'
-      ? `Lo que le gusta a ${escapar(nombrePareja)}`
-      : seccion === 'comida'
-        ? (estado.pestana === 'mia' ? 'Tus comidas favoritas' : `Las comidas de ${escapar(nombrePareja)}`)
-        : (estado.pestana === 'mia' ? 'Estos son tus deseos' : `Los deseos de ${escapar(nombrePareja)}`);
+  const bajadas = {
+    inicio: 'Lo nuestro, de un vistazo',
+    diario: 'Nuestros recuerdos',
+    ajustes: 'Tu cuenta y este celular',
+    gustos: `Lo que le gusta a ${escapar(nombrePareja)}`,
+    comida: estado.pestana === 'mia' ? 'Tus comidas favoritas' : `Las comidas de ${escapar(nombrePareja)}`,
+    deseos: estado.pestana === 'mia' ? 'Estos son tus deseos' : `Los deseos de ${escapar(nombrePareja)}`,
+  };
 
-  const pestanasSeccion = enAjustes ? '' : `<div class="tabs">
+  const pestanasSeccion = enLista ? `<div class="tabs">
     <button class="tab-btn ${seccion === 'deseos' ? 'active' : ''}" data-accion="seccion" data-seccion="deseos">🎁 Deseos</button>
     <button class="tab-btn ${seccion === 'comida' ? 'active' : ''}" data-accion="seccion" data-seccion="comida">🍽️ Comida</button>
     ${estado.sesion === 'manolo'
       ? `<button class="tab-btn ${seccion === 'gustos' ? 'active' : ''}" data-accion="seccion" data-seccion="gustos">💐 Gustos</button>`
       : ''}
-  </div>`;
+  </div>` : '';
 
-  const pestanasPersona = (enAjustes || seccion === 'gustos') ? '' : `<div class="tabs">
+  const pestanasPersona = (enLista && seccion !== 'gustos') ? `<div class="tabs">
     <button class="tab-btn ${estado.pestana === 'mia' ? 'active' : ''}" data-accion="pestana" data-pestana="mia">Mi lista</button>
     <button class="tab-btn ${estado.pestana === 'pareja' ? 'active' : ''}" data-accion="pestana" data-pestana="pareja">${escapar(nombrePareja)}</button>
-  </div>`;
+  </div>` : '';
 
-  const muestraFab = !enAjustes && seccion !== 'gustos' && estado.pestana === 'mia';
-  const fab = muestraFab
-    ? `<button class="fab" data-accion="${seccion === 'comida' ? 'nueva-comida' : 'nuevo-deseo'}">+</button>`
-    : '';
+  let fab = '';
+  if (seccion === 'diario') fab = '<button class="fab" data-accion="nueva-entrada">+</button>';
+  else if (enLista && seccion !== 'gustos' && estado.pestana === 'mia') {
+    fab = `<button class="fab" data-accion="${seccion === 'comida' ? 'nueva-comida' : 'nuevo-deseo'}">+</button>`;
+  }
+
+  const navegacion = [
+    { clave: 'inicio', icono: '🏠', texto: 'Inicio' },
+    { clave: 'diario', icono: '📖', texto: 'Diario' },
+    { clave: 'deseos', icono: '🎁', texto: 'Deseos' },
+    { clave: 'ajustes', icono: '⚙️', texto: 'Ajustes' },
+  ].map((item) => {
+    const activo = item.clave === 'deseos' ? enLista : seccion === item.clave;
+    return `<button class="nav-item ${activo ? 'active' : ''}" data-accion="seccion" data-seccion="${item.clave}">
+      <span class="nav-icon">${item.icono}</span>${item.texto}</button>`;
+  }).join('');
 
   return `<div class="screen-dashboard">
     <div class="dash-header">
       <div>
         <div class="dash-greeting">Hola, ${escapar(perfil.nombre)} ${perfil.emoji}</div>
-        <div class="dash-sub">${bajada}</div>
+        <div class="dash-sub">${bajadas[seccion] || ''}</div>
       </div>
     </div>
     ${pestanasSeccion}
     ${pestanasPersona}
     <div class="dashboard-scroll">${contenido}</div>
     ${fab}
-    <div class="bottom-nav">
-      <button class="nav-item ${!enAjustes && estado.pestana === 'mia' ? 'active' : ''}" data-accion="pestana" data-pestana="mia">
-        <span class="nav-icon">🏠</span>Mi lista</button>
-      <button class="nav-item ${!enAjustes && estado.pestana === 'pareja' ? 'active' : ''}" data-accion="pestana" data-pestana="pareja">
-        <span class="nav-icon">💌</span>${escapar(nombrePareja)}</button>
-      <button class="nav-item ${enAjustes ? 'active' : ''}" data-accion="seccion" data-seccion="ajustes">
-        <span class="nav-icon">⚙️</span>Ajustes</button>
-    </div>
+    <div class="bottom-nav">${navegacion}</div>
   </div>`;
 }
 
 function dibujarHoja() {
   if (!estado.hoja) return '';
-  return estado.hoja.tipo === 'comida' ? dibujarHojaComida() : dibujarHojaDeseo();
+  if (estado.hoja.tipo === 'entrada') return dibujarHojaEntrada();
+  if (estado.hoja.tipo === 'comida') return dibujarHojaComida();
+  return dibujarHojaDeseo();
 }
 
 function dibujar() {
@@ -119,6 +134,7 @@ function dibujar() {
 
   raiz.innerHTML = html;
   conectarEventos();
+  cargarMiniaturas(raiz);
 }
 
 // ---------- Sesión ----------
@@ -147,14 +163,16 @@ onAuthStateChanged(auth, async (usuario) => {
   estado.pinError = false;
   estado.pinConfirmando = null;
   estado.errorAcceso = '';
-  estado.pantalla = sesion.tienePin(perfil) ? 'pin-abrir' : 'pin-crear';
+  if (sesion.tienePin(perfil)) estado.pantalla = 'pin-abrir';
+  else if (sesion.prefiereSinPin(perfil)) estado.pantalla = 'panel';
+  else estado.pantalla = 'pin-crear';
   datos.escucharDatos(dibujar);
   dibujar();
 });
 
 function entrarAlPanel() {
   estado.pantalla = 'panel';
-  estado.seccion = 'deseos';
+  estado.seccion = 'inicio';
   estado.pestana = 'mia';
   estado.busqueda = '';
   estado.orden = 'recientes';
@@ -205,6 +223,7 @@ async function marcarDigito(digito) {
       return;
     }
     await sesion.guardarPin(estado.sesion, pin);
+    sesion.recordarSinPin(estado.sesion, false);
     estado.pinBuffer = '';
     estado.pinConfirmando = null;
     entrarAlPanel();
@@ -230,9 +249,10 @@ async function marcarDigito(digito) {
 
 const deseoVacio = () => ({ title: '', description: '', price: '', url: '', image: '' });
 const comidaVacia = () => ({ name: '', restaurant: '', note: '' });
+const entradaVacia = () => ({ texto: '', fecha: hoy(), animo: '', etiquetas: [], lugar: '' });
 
-function abrirHoja(tipo, modo, item) {
-  estado.hoja = { tipo, modo, item: { ...item }, subiendo: false };
+function abrirHoja(tipo, modo, item, extra = {}) {
+  estado.hoja = { tipo, modo, item: { ...item }, subiendo: false, ...extra };
   dibujar();
 }
 
@@ -241,9 +261,23 @@ function cerrarHoja() {
   dibujar();
 }
 
+async function abrirHojaEntrada(modo, entrada) {
+  const item = entrada ? { ...entrada, etiquetas: [...(entrada.etiquetas || [])] } : entradaVacia();
+  abrirHoja('entrada', modo, item, { fotos: (entrada?.fotos || []).map((id) => ({ id, mini: null })), fotosQuitadas: [] });
+  // Las miniaturas de las fotos que ya tenía se piden después, sin trabar la hoja.
+  if (estado.hoja.fotos.length) {
+    for (const foto of estado.hoja.fotos) {
+      foto.mini = await datos.traerMiniatura(foto.id);
+    }
+    if (estado.hoja && estado.hoja.tipo === 'entrada') dibujar();
+  }
+}
+
 // Guarda lo escrito antes de redibujar, para no perderlo al subir una foto.
 function sincronizarHoja() {
-  const formulario = raiz.querySelector('#form-deseo') || raiz.querySelector('#form-comida');
+  const formulario = raiz.querySelector('#form-entrada')
+    || raiz.querySelector('#form-deseo')
+    || raiz.querySelector('#form-comida');
   if (!formulario || !estado.hoja) return;
   const campos = new FormData(formulario);
   for (const [clave, valor] of campos.entries()) {
@@ -252,13 +286,31 @@ function sincronizarHoja() {
   }
 }
 
-async function elegirFoto(archivo) {
+async function elegirFotoDeseo(archivo) {
   if (!archivo) return;
   sincronizarHoja();
   estado.hoja.subiendo = true;
   dibujar();
   try {
-    estado.hoja.item.image = await comprimirFoto(archivo);
+    estado.hoja.item.image = await comprimirFotoSimple(archivo);
+  } catch (e) {
+    avisarYRedibujar(e.message || 'No se pudo procesar la imagen');
+  } finally {
+    estado.hoja.subiendo = false;
+    dibujar();
+  }
+}
+
+async function elegirFotosEntrada(archivos) {
+  if (!archivos || !archivos.length) return;
+  sincronizarHoja();
+  estado.hoja.subiendo = true;
+  dibujar();
+  try {
+    const espacio = 6 - estado.hoja.fotos.length;
+    for (const archivo of [...archivos].slice(0, espacio)) {
+      estado.hoja.fotos.push(await comprimirFoto(archivo));
+    }
   } catch (e) {
     avisarYRedibujar(e.message || 'No se pudo procesar la imagen');
   } finally {
@@ -274,6 +326,55 @@ function preguntar(mensaje, alConfirmar) {
 
 // ---------- Guardados ----------
 
+function leerEntradaDelFormulario() {
+  sincronizarHoja();
+  const item = estado.hoja.item;
+  const fecha = esFechaValida(item.fecha) ? item.fecha : hoy();
+  return {
+    texto: String(item.texto || '').trim().slice(0, 5000),
+    fecha,
+    animo: item.animo || '',
+    etiquetas: item.etiquetas || [],
+    lugar: String(item.lugar || '').trim().slice(0, 120),
+  };
+}
+
+async function guardarEntrada() {
+  const contenido = leerEntradaDelFormulario();
+  if (!contenido.texto) { avisarYRedibujar('Escribe algo, aunque sea una línea'); return; }
+
+  const { modo, item, fotos, fotosQuitadas } = estado.hoja;
+  try {
+    if (modo === 'editar') {
+      await datos.editarEntrada(item.id, contenido, fotos);
+      if (fotosQuitadas.length) await datos.borrarFotos(fotosQuitadas);
+    } else {
+      const nuevas = fotos.filter((f) => !f.id);
+      await datos.crearEntrada(contenido, nuevas);
+      if (modo === 'borrador') await datos.borrarBorrador(item.id);
+    }
+    estado.hoja = null;
+    avisarYRedibujar(modo === 'editar' ? 'Recuerdo guardado' : '¡Guardado! 💛');
+  } catch (e) {
+    avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
+  }
+}
+
+async function guardarComoBorrador() {
+  const contenido = leerEntradaDelFormulario();
+  if (!contenido.texto) { avisarYRedibujar('Escribe algo primero'); return; }
+  if (estado.hoja.fotos.some((f) => !f.id)) {
+    avisarYRedibujar('Las fotos se guardan al publicar el recuerdo');
+  }
+  try {
+    await datos.guardarBorrador(contenido, estado.hoja.modo === 'borrador' ? estado.hoja.item.id : null);
+    estado.hoja = null;
+    avisarYRedibujar('Guardado como borrador');
+  } catch (e) {
+    avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
+  }
+}
+
 async function guardarDeseo(campos) {
   const titulo = (campos.title || '').trim();
   if (!titulo) { avisarYRedibujar('Pon un título para el deseo'); return; }
@@ -284,16 +385,12 @@ async function guardarDeseo(campos) {
     price: (campos.price || '').trim().slice(0, 50),
     image: campos.image || '',
   };
+  const esNuevo = estado.hoja.modo === 'nuevo';
   try {
-    if (estado.hoja.modo === 'nuevo') {
-      await datos.crearDeseo(contenido);
-      estado.hoja = null;
-      avisarYRedibujar('¡Agregado a tu lista! 🎉');
-    } else {
-      await datos.editarDeseo(estado.hoja.item.id, contenido);
-      estado.hoja = null;
-      avisarYRedibujar('Cambios guardados');
-    }
+    if (esNuevo) await datos.crearDeseo(contenido);
+    else await datos.editarDeseo(estado.hoja.item.id, contenido);
+    estado.hoja = null;
+    avisarYRedibujar(esNuevo ? '¡Agregado a tu lista! 🎉' : 'Cambios guardados');
   } catch (e) {
     avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
   }
@@ -359,6 +456,20 @@ async function entrar(clave) {
   }
 }
 
+async function abrirFotoGrande(id) {
+  estado.fotoAmpliada = 'cargando';
+  dibujar();
+  try {
+    const grande = await datos.traerFotoGrande(id);
+    estado.fotoAmpliada = grande || (await datos.traerMiniatura(id));
+  } catch (e) {
+    estado.fotoAmpliada = null;
+    avisarYRedibujar('No se pudo abrir la foto');
+    return;
+  }
+  dibujar();
+}
+
 // ---------- Eventos ----------
 
 const acciones = {
@@ -388,14 +499,15 @@ const acciones = {
     estado.pinError = false;
     refrescarPin();
   },
-  'saltar-pin': () => entrarAlPanel(),
+  'saltar-pin': () => {
+    sesion.recordarSinPin(estado.sesion, true);
+    entrarAlPanel();
+  },
   'olvide-pin': async () => {
     sesion.borrarPin(estado.sesion);
     await sesion.salir();
   },
-  'salir': async () => {
-    await sesion.salir();
-  },
+  'salir': async () => { await sesion.salir(); },
   'configurar-pin': () => {
     estado.pinBuffer = '';
     estado.pinConfirmando = null;
@@ -406,8 +518,10 @@ const acciones = {
   },
   'quitar-pin': () => {
     sesion.borrarPin(estado.sesion);
+    sesion.recordarSinPin(estado.sesion, true);
     avisarYRedibujar('Candado quitado de este celular');
   },
+
   'seccion': (elemento) => {
     estado.seccion = elemento.dataset.seccion;
     estado.busqueda = '';
@@ -416,15 +530,90 @@ const acciones = {
   },
   'pestana': (elemento) => {
     estado.pestana = elemento.dataset.pestana;
-    if (estado.seccion === 'ajustes' || estado.seccion === 'gustos') estado.seccion = 'deseos';
     estado.busqueda = '';
     estado.orden = 'recientes';
     dibujar();
   },
-  'ordenar': (elemento) => {
-    estado.orden = elemento.dataset.orden;
+  'ir-ajustes': () => { estado.seccion = 'ajustes'; dibujar(); },
+  'ir-diario': () => { estado.seccion = 'diario'; dibujar(); },
+
+  'nueva-entrada': () => abrirHojaEntrada('nuevo', null),
+  'editar-entrada': (elemento) => {
+    const entrada = estado.entradas.find((e) => e.id === elemento.dataset.id);
+    if (entrada) abrirHojaEntrada('editar', entrada);
+  },
+  'editar-borrador': (elemento) => {
+    const borrador = estado.borradores.find((b) => b.id === elemento.dataset.id);
+    if (borrador) abrirHojaEntrada('borrador', borrador);
+  },
+  'borrar-entrada': (elemento) => {
+    const id = elemento.dataset.id;
+    preguntar('¿Borrar este recuerdo? No se puede deshacer.', async () => {
+      const entrada = estado.entradas.find((e) => e.id === id);
+      try {
+        if (entrada) await datos.borrarEntrada(entrada);
+        estado.hoja = null;
+        avisarYRedibujar('Recuerdo borrado');
+      } catch (e) {
+        avisarYRedibujar('No se pudo borrar');
+      }
+    });
+  },
+  'borrar-borrador': (elemento) => {
+    const id = elemento.dataset.id;
+    preguntar('¿Borrar este borrador?', async () => {
+      try {
+        await datos.borrarBorrador(id);
+        estado.hoja = null;
+        avisarYRedibujar('Borrador borrado');
+      } catch (e) {
+        avisarYRedibujar('No se pudo borrar');
+      }
+    });
+  },
+  'guardar-borrador': () => guardarComoBorrador(),
+  'reaccionar': async (elemento) => {
+    const entrada = estado.entradas.find((e) => e.id === elemento.dataset.id);
+    if (!entrada) return;
+    try {
+      await datos.reaccionar(entrada, elemento.dataset.emoji);
+    } catch (e) {
+      avisarYRedibujar('No se pudo reaccionar');
+    }
+  },
+  'elegir-animo': (elemento) => {
+    sincronizarHoja();
+    const emoji = elemento.dataset.emoji;
+    estado.hoja.item.animo = estado.hoja.item.animo === emoji ? '' : emoji;
     dibujar();
   },
+  'alternar-etiqueta': (elemento) => {
+    sincronizarHoja();
+    const clave = elemento.dataset.valor;
+    const actuales = estado.hoja.item.etiquetas || [];
+    estado.hoja.item.etiquetas = actuales.includes(clave)
+      ? actuales.filter((c) => c !== clave)
+      : [...actuales, clave];
+    dibujar();
+  },
+  'quitar-foto-entrada': (elemento) => {
+    sincronizarHoja();
+    const indice = Number(elemento.dataset.indice);
+    const [quitada] = estado.hoja.fotos.splice(indice, 1);
+    if (quitada && quitada.id) estado.hoja.fotosQuitadas.push(quitada.id);
+    dibujar();
+  },
+  'abrir-foto': (elemento) => abrirFotoGrande(elemento.dataset.foto),
+  'filtro-autor': (elemento) => { estado.filtroAutor = elemento.dataset.valor; dibujar(); },
+  'filtro-etiqueta': (elemento) => {
+    estado.filtroEtiqueta = estado.filtroEtiqueta === elemento.dataset.valor ? '' : elemento.dataset.valor;
+    dibujar();
+  },
+  'mas-entradas': () => {
+    estado.cuantasEntradas += 15;
+    datos.escucharDatos(dibujar);
+  },
+
   'nuevo-deseo': () => abrirHoja('deseo', 'nuevo', deseoVacio()),
   'nueva-comida': () => abrirHoja('comida', 'nuevo', comidaVacia()),
   'editar-deseo': (elemento) => {
@@ -456,7 +645,14 @@ const acciones = {
     if (deseo && deseo.image) { estado.fotoAmpliada = deseo.image; dibujar(); }
   },
   'foto-cerrar': () => { estado.fotoAmpliada = null; dibujar(); },
+  'ordenar': (elemento) => { estado.orden = elemento.dataset.orden; dibujar(); },
+
   'hoja-cancelar': () => cerrarHoja(),
+  'quitar-foto': () => {
+    sincronizarHoja();
+    estado.hoja.item.image = '';
+    dibujar();
+  },
   'hoja-borrar': (elemento) => {
     const id = elemento.dataset.id;
     const esComida = estado.hoja.tipo === 'comida';
@@ -471,10 +667,15 @@ const acciones = {
       }
     });
   },
-  'quitar-foto': () => {
-    sincronizarHoja();
-    estado.hoja.item.image = '';
-    dibujar();
+  'borrar-fecha': async (elemento) => {
+    const indice = Number(elemento.dataset.indice);
+    const fechas = (estado.ajustes.fechas || []).filter((f, i) => i !== indice);
+    try {
+      await datos.guardarAjustes({ fechas });
+      avisarYRedibujar('Fecha borrada');
+    } catch (e) {
+      avisarYRedibujar('No se pudo borrar');
+    }
   },
   'confirmar-si': () => {
     const tarea = estado.confirmacion && estado.confirmacion.alConfirmar;
@@ -495,23 +696,29 @@ async function cambiarReserva(id) {
   }
 }
 
+function conectarBusqueda(elemento, campo, idCampo) {
+  elemento.addEventListener('input', () => {
+    const posicion = elemento.selectionStart;
+    estado[campo] = elemento.value;
+    dibujar();
+    const nuevo = raiz.querySelector(idCampo);
+    if (nuevo) { nuevo.focus(); nuevo.setSelectionRange(posicion, posicion); }
+  });
+}
+
 function conectarEventos() {
   raiz.querySelectorAll('[data-accion]').forEach((elemento) => {
     const accion = elemento.dataset.accion;
 
-    if (accion === 'buscar') {
-      elemento.addEventListener('input', () => {
-        const posicion = elemento.selectionStart;
-        estado.busqueda = elemento.value;
-        dibujar();
-        const nuevo = raiz.querySelector('#campo-busqueda');
-        if (nuevo) { nuevo.focus(); nuevo.setSelectionRange(posicion, posicion); }
-      });
-      return;
-    }
+    if (accion === 'buscar') { conectarBusqueda(elemento, 'busqueda', '#campo-busqueda'); return; }
+    if (accion === 'buscar-diario') { conectarBusqueda(elemento, 'busquedaDiario', '#campo-busqueda-diario'); return; }
 
     if (accion === 'archivo-foto') {
-      elemento.addEventListener('change', () => elegirFoto(elemento.files[0]));
+      elemento.addEventListener('change', () => elegirFotoDeseo(elemento.files[0]));
+      return;
+    }
+    if (accion === 'archivo-entrada') {
+      elemento.addEventListener('change', () => elegirFotosEntrada(elemento.files));
       return;
     }
 
@@ -534,6 +741,14 @@ function conectarEventos() {
     formClave.addEventListener('submit', (evento) => {
       evento.preventDefault();
       entrar(raiz.querySelector('#campo-clave').value);
+    });
+  }
+
+  const formEntrada = raiz.querySelector('#form-entrada');
+  if (formEntrada) {
+    formEntrada.addEventListener('submit', (evento) => {
+      evento.preventDefault();
+      guardarEntrada();
     });
   }
 
@@ -584,6 +799,39 @@ function conectarEventos() {
     formClaveNueva.addEventListener('submit', (evento) => {
       evento.preventDefault();
       cambiarClave(formClaveNueva);
+    });
+  }
+
+  const formInicio = raiz.querySelector('#form-inicio');
+  if (formInicio) {
+    formInicio.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      const fecha = new FormData(formInicio).get('inicio');
+      if (!esFechaValida(fecha)) { avisarYRedibujar('Esa fecha no es válida'); return; }
+      try {
+        await datos.guardarAjustes({ inicio: fecha });
+        avisarYRedibujar('Fecha guardada 💞');
+      } catch (e) {
+        avisarYRedibujar('No se pudo guardar');
+      }
+    });
+  }
+
+  const formFechaNueva = raiz.querySelector('#form-fecha-nueva');
+  if (formFechaNueva) {
+    formFechaNueva.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      const campos = new FormData(formFechaNueva);
+      const nombre = String(campos.get('nombre') || '').trim().slice(0, 60);
+      const fecha = campos.get('fecha');
+      if (!nombre || !esFechaValida(fecha)) { avisarYRedibujar('Faltan el nombre o el día'); return; }
+      const fechas = [...(estado.ajustes.fechas || []), { nombre, fecha }];
+      try {
+        await datos.guardarAjustes({ fechas });
+        avisarYRedibujar('Fecha agregada 🎉');
+      } catch (e) {
+        avisarYRedibujar('No se pudo guardar');
+      }
     });
   }
 

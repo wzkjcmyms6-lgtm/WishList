@@ -9,8 +9,48 @@ import { tienePin } from '../auth.js';
 export function dibujarAjustes() {
   const perfil = PERFILES[estado.sesion];
   const conPin = tienePin(estado.sesion);
+  const fechas = Array.isArray(estado.ajustes.fechas) ? estado.ajustes.fechas : [];
+
+  const listaFechas = fechas.length
+    ? fechas.map((f, i) => `<div class="fecha-fila">
+        <div>
+          <div class="ajuste-nombre">${escapar(f.nombre)}</div>
+          <div class="ajuste-detalle">${escapar(f.fecha)}</div>
+        </div>
+        <button class="icon-btn danger" data-accion="borrar-fecha" data-indice="${i}">🗑️</button>
+      </div>`).join('')
+    : '<div class="ajuste-detalle">Todavía no agregaron ninguna.</div>';
 
   return `<div class="ajustes">
+
+    <div class="ajuste-bloque">
+      <div class="ajuste-titulo">Lo nuestro</div>
+      <form id="form-inicio">
+        <div class="field">
+          <label>¿Cuándo empezaron?</label>
+          <input type="date" name="inicio" value="${escapar(estado.ajustes.inicio || '')}" required />
+        </div>
+        <button type="submit" class="btn btn-primary">Guardar la fecha</button>
+      </form>
+      <div class="ajuste-nota">Con esto la pantalla de Inicio cuenta los días juntos.</div>
+    </div>
+
+    <div class="ajuste-bloque">
+      <div class="ajuste-titulo">Fechas especiales</div>
+      ${listaFechas}
+      <form id="form-fecha-nueva" class="fecha-nueva">
+        <div class="field">
+          <label>Nombre</label>
+          <input type="text" name="nombre" placeholder="Ej. Cumpleaños de Lentina" required maxlength="60" />
+        </div>
+        <div class="field">
+          <label>Día</label>
+          <input type="date" name="fecha" required />
+        </div>
+        <button type="submit" class="btn btn-secondary">Agregar fecha</button>
+      </form>
+      <div class="ajuste-nota">Inicio muestra una cuenta regresiva de la más cercana.</div>
+    </div>
 
     <div class="ajuste-bloque">
       <div class="ajuste-titulo">Tu cuenta</div>

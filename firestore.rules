@@ -45,9 +45,18 @@ service cloud.firestore {
 
     // ---------- Diario ----------
 
+    // Los borradores viven aparte y no en 'entries' con una marca: si
+    // estuvieran mezclados, cualquier consulta a la línea de tiempo traería
+    // también los del otro y Firestore rechazaría la consulta entera.
+    match /drafts/{draftId} {
+      allow read:   if somosNosotros() && soyElAutor();
+      allow create: if somosNosotros() && loCreoComoMio();
+      allow update: if somosNosotros() && soyElAutor() && loCreoComoMio();
+      allow delete: if somosNosotros() && soyElAutor();
+    }
+
     match /entries/{entryId} {
-      // Un borrador lo ve solo quien lo escribió.
-      allow read:   if somosNosotros() && (resource.data.isDraft != true || soyElAutor());
+      allow read:   if somosNosotros();
       allow create: if somosNosotros() && loCreoComoMio();
       // El otro solo puede tocar las reacciones; el resto, solo el autor.
       allow update: if somosNosotros() && (soyElAutor() || soloCambia(['reactions']));

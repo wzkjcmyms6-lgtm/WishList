@@ -27,6 +27,21 @@ export const CATEGORIAS_GUSTOS = [
   { clave: 'notes', etiqueta: '✨ Otros gustos', ejemplo: 'Cualquier otra cosa que le guste' },
 ];
 
+export const ETIQUETAS = [
+  { clave: 'cita', texto: '💕 Cita' },
+  { clave: 'viaje', texto: '✈️ Viaje' },
+  { clave: 'comida', texto: '🍽️ Comida' },
+  { clave: 'aniversario', texto: '🎉 Aniversario' },
+  { clave: 'logro', texto: '🏆 Logro' },
+  { clave: 'cotidiano', texto: '🏠 Cotidiano' },
+  { clave: 'familia', texto: '👨‍👩‍👧 Familia' },
+  { clave: 'primera-vez', texto: '✨ Primera vez' },
+];
+
+export const ANIMOS = ['😊', '🥹', '😍', '😂', '🤗', '😌', '🥰', '😮', '😴', '😢'];
+
+export const REACCIONES = ['❤️', '🥹', '😂', '🔥', '🤗', '😍'];
+
 export const estado = {
   pantalla: 'cargando', // cargando | perfiles | clave | pin-crear | pin-abrir | panel | error
   errorConexion: false,
@@ -40,10 +55,19 @@ export const estado = {
   pinError: false,
   pinConfirmando: null,  // al crear el PIN, guarda el primer intento
 
-  seccion: 'deseos',     // deseos | comida | gustos | ajustes
+  seccion: 'inicio',     // inicio | diario | deseos | comida | gustos | ajustes
   pestana: 'mia',        // mia | pareja
   busqueda: '',
   orden: 'recientes',
+
+  entradas: [],
+  borradores: [],
+  cuantasEntradas: 15,
+  hayMasEntradas: false,
+  ajustes: {},
+  filtroAutor: 'todos',  // todos | lentina | manolo
+  filtroEtiqueta: '',
+  busquedaDiario: '',
 
   deseos: [],
   comidas: [],
