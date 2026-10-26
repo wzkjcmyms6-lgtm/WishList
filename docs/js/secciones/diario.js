@@ -155,6 +155,7 @@ export function dibujarCalendario() {
     : '';
 
   return `<div class="calendario">
+    <button class="btn btn-secondary volver-lista" data-accion="ver-lista">‹ Volver a los recuerdos</button>
     <div class="calendario-cabecera">
       <button class="calendario-flecha" data-accion="mes-anterior">‹</button>
       <div class="calendario-mes">${nombreDelMes(`${mes}-01`)} ${anio}</div>
@@ -193,6 +194,7 @@ function filtros() {
     <div class="sort-chips">
       ${fichasAutor}
       <button class="sort-chip" data-accion="ver-calendario">📅 Calendario</button>
+      <button class="sort-chip" data-accion="ver-album">📷 Álbum</button>
     </div>
     <div class="sort-chips">${fichasEtiqueta}</div>
   </div>`;

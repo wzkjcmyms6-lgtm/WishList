@@ -96,13 +96,72 @@ function bloqueUltimas() {
   </div>`;
 }
 
+// Los días que vale la pena festejar.
+const HITOS = [50, 100, 200, 300, 365, 500, 730, 1000, 1095, 1500, 1825, 2000, 2555, 3000, 3650];
+
+export function hitoDeHoy() {
+  if (!esFechaValida(estado.ajustes.inicio)) return null;
+  const dias = diasEntre(estado.ajustes.inicio, hoy());
+  return HITOS.includes(dias) ? dias : null;
+}
+
+function bloqueCelebracion() {
+  const hito = hitoDeHoy();
+  if (!hito) return '';
+  const texto = hito === 365 ? '¡Un año juntos!'
+    : hito === 730 ? '¡Dos años juntos!'
+    : hito === 1095 ? '¡Tres años juntos!'
+    : hito === 1825 ? '¡Cinco años juntos!'
+    : `¡${hito.toLocaleString('es-BO')} días juntos!`;
+
+  const papelitos = Array.from({ length: 14 }, (_, i) =>
+    `<span class="papelito p${i % 7}" style="left:${(i * 7 + 3) % 96}%; animation-delay:${(i % 5) * 0.4}s"></span>`).join('');
+
+  return `<div class="celebracion">
+    <div class="papelitos">${papelitos}</div>
+    <div class="celebracion-emoji">🎉</div>
+    <div class="celebracion-texto">${texto}</div>
+    <div class="celebracion-bajada">Hoy es de esos días para anotar.</div>
+  </div>`;
+}
+
+function bloqueFrasco() {
+  const recuerdo = estado.recuerdoDelFrasco;
+  if (!recuerdo) {
+    return `<button class="frasco" data-accion="sacar-recuerdo">
+      <span class="frasco-emoji">🫙</span>
+      <span>Sacar un recuerdo al azar</span>
+    </button>`;
+  }
+  if (recuerdo === 'vacio') {
+    return `<div class="inicio-tarjeta">
+      <div class="inicio-tarjeta-titulo">El frasco</div>
+      <div class="ajuste-nota">Todavía no hay recuerdos para sacar. Escribe el primero 💛</div>
+      <button class="btn btn-secondary" data-accion="guardar-frasco">Cerrar</button>
+    </div>`;
+  }
+  const perfil = PERFILES[recuerdo.autor] || PERFILES.lentina;
+  return `<div class="inicio-tarjeta frasco-abierto">
+    <div class="inicio-tarjeta-titulo">🫙 Del frasco</div>
+    <div class="recuerdo-cuando">${escapar(enPalabras(recuerdo.fecha, { conAnio: true }))}</div>
+    <div class="recuerdo-texto">${escapar(String(recuerdo.texto || '').slice(0, 400))}</div>
+    <div class="recuerdo-autor ${claseTema(perfil.tema)}">${perfil.emoji} ${escapar(nombreDe(recuerdo.autor))}</div>
+    <div class="ajuste-botones">
+      <button class="btn btn-secondary" data-accion="sacar-recuerdo">Otro</button>
+      <button class="btn btn-secondary" data-accion="guardar-frasco">Cerrar</button>
+    </div>
+  </div>`;
+}
+
 export function dibujarInicio() {
   return `<div class="inicio">
+    ${bloqueCelebracion()}
     ${bloqueDiasJuntos()}
     <button class="escribir-grande" data-accion="nueva-entrada">
       <span class="escribir-emoji">✍️</span>
       <span>Escribir un recuerdo</span>
     </button>
+    ${bloqueFrasco()}
     ${bloqueProximaFecha()}
     ${bloqueUnDiaComoHoy()}
     ${bloqueUltimas()}

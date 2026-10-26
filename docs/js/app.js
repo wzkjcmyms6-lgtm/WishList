@@ -16,6 +16,8 @@ import { dibujarInicio } from './secciones/inicio.js';
 import {
   dibujarDiario, dibujarHojaEntrada, cargarMiniaturas, dibujarCalendario,
 } from './secciones/diario.js';
+import { dibujarAlbum, dibujarVisor } from './secciones/album.js';
+import { activarVisor } from './visor.js';
 import { dibujarPregunta, preguntaDeHoy } from './secciones/pregunta.js';
 import { dibujarDeseos, dibujarHojaDeseo } from './secciones/deseos.js';
 import { dibujarComidas, dibujarHojaComida } from './secciones/comida.js';
@@ -26,7 +28,11 @@ import { dibujarAjustes } from './secciones/ajustes.js';
 // mano. El doble toque ya lo bloquea "touch-action: manipulation" en el CSS.
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('gesturechange', (e) => e.preventDefault());
-document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+// Dentro del visor de fotos el pellizco sí sirve: ahí lo maneja visor.js para
+// acercar la foto (y solo la foto, no toda la página).
+document.addEventListener('touchmove', (e) => {
+  if (e.touches.length > 1 && !estado.visor) e.preventDefault();
+}, { passive: false });
 
 const avisarYRedibujar = (mensaje) => avisar(mensaje, dibujar);
 
@@ -53,7 +59,7 @@ function dibujarPanel() {
 
   let contenido;
   if (seccion === 'inicio') contenido = dibujarInicio();
-  else if (seccion === 'diario') contenido = estado.verCalendario ? dibujarCalendario() : dibujarDiario();
+  else if (seccion === 'diario') contenido = vistaDelDiario();
   else if (seccion === 'pregunta') contenido = dibujarPregunta();
   else if (seccion === 'ajustes') contenido = dibujarAjustes();
   else if (seccion === 'gustos') contenido = dibujarGustos();
@@ -62,7 +68,7 @@ function dibujarPanel() {
 
   const bajadas = {
     inicio: 'Lo nuestro, de un vistazo',
-    diario: estado.verCalendario ? 'Nuestro calendario' : 'Nuestros recuerdos',
+    diario: { lista: 'Nuestros recuerdos', calendario: 'Nuestro calendario', album: 'Todas nuestras fotos' }[estado.vistaDiario],
     pregunta: 'Para conocernos más',
     ajustes: 'Tu cuenta y este celular',
     gustos: `Lo que le gusta a ${escapar(nombrePareja)}`,
@@ -84,7 +90,7 @@ function dibujarPanel() {
   </div>` : '';
 
   let fab = '';
-  if (seccion === 'diario' && !estado.verCalendario) fab = '<button class="fab" data-accion="nueva-entrada">+</button>';
+  if (seccion === 'diario' && estado.vistaDiario === 'lista') fab = '<button class="fab" data-accion="nueva-entrada">+</button>';
   else if (enLista && seccion !== 'gustos' && estado.pestana === 'mia') {
     fab = `<button class="fab" data-accion="${seccion === 'comida' ? 'nueva-comida' : 'nuevo-deseo'}">+</button>`;
   }
@@ -136,6 +142,7 @@ function dibujar() {
   html += dibujarHoja();
   html += dibujarConfirmacion();
   html += dibujarFotoAmpliada();
+  html += dibujarVisor();
   html += dibujarAviso();
 
   raiz.innerHTML = html;
@@ -532,7 +539,7 @@ const acciones = {
     estado.seccion = elemento.dataset.seccion;
     estado.busqueda = '';
     estado.orden = 'recientes';
-    estado.verCalendario = false;
+    estado.vistaDiario = 'lista';
     dibujar();
     if (estado.seccion === 'pregunta') cargarRespuestasDelOtro();
   },
@@ -650,12 +657,26 @@ const acciones = {
   },
 
   'ver-calendario': () => {
-    estado.verCalendario = true;
+    estado.vistaDiario = 'calendario';
     estado.diaElegido = '';
     estado.mesCalendario = estado.mesCalendario || hoy().slice(0, 7);
     dibujar();
     cargarMes();
   },
+  'ver-album': () => {
+    estado.vistaDiario = 'album';
+    dibujar();
+    cargarAlbum();
+  },
+  'ver-lista': () => { estado.vistaDiario = 'lista'; dibujar(); },
+  'mas-fotos': () => {
+    estado.cuantasFotos += 30;
+    cargarAlbum();
+  },
+  'abrir-visor': (elemento) => abrirVisor(Number(elemento.dataset.indice)),
+  'cerrar-visor': () => { estado.visor = null; dibujar(); },
+  'sacar-recuerdo': () => sacarDelFrasco(),
+  'guardar-frasco': () => { estado.recuerdoDelFrasco = null; dibujar(); },
   'mes-anterior': () => moverMes(-1),
   'mes-siguiente': () => moverMes(1),
   'elegir-dia': (elemento) => {
@@ -752,13 +773,74 @@ async function cargarRespuestasDelOtro() {
   if (hubo && estado.seccion === 'pregunta') dibujar();
 }
 
+function vistaDelDiario() {
+  if (estado.vistaDiario === 'calendario') return dibujarCalendario();
+  if (estado.vistaDiario === 'album') return dibujarAlbum();
+  return dibujarDiario();
+}
+
+async function cargarAlbum() {
+  estado.albumCargando = true;
+  dibujar();
+  try {
+    const fotos = await datos.traerFotosDelAlbum(estado.cuantasFotos);
+    estado.fotosAlbum = fotos;
+    estado.hayMasFotos = fotos.length === estado.cuantasFotos;
+  } catch (e) {
+    estado.fotosAlbum = [];
+    avisarYRedibujar('No se pudieron cargar las fotos');
+  } finally {
+    estado.albumCargando = false;
+    dibujar();
+  }
+}
+
+async function abrirVisor(indice) {
+  estado.visor = { indice, grande: null, escala: 1, x: 0, y: 0 };
+  dibujar();
+  const foto = estado.fotosAlbum[indice];
+  if (!foto) return;
+  try {
+    const grande = await datos.traerFotoGrande(foto.id);
+    if (!estado.visor || estado.visor.indice !== indice) return;
+    estado.visor.grande = grande || foto.mini;
+  } catch (e) {
+    if (estado.visor) estado.visor.grande = foto.mini;
+  }
+  dibujar();
+}
+
+function cambiarFotoDelVisor(direccion) {
+  if (!estado.visor) return;
+  const siguiente = estado.visor.indice + direccion;
+  if (siguiente < 0 || siguiente >= estado.fotosAlbum.length) {
+    estado.visor.escala = 1;
+    estado.visor.x = 0;
+    estado.visor.y = 0;
+    dibujar();
+    return;
+  }
+  abrirVisor(siguiente);
+}
+
+async function sacarDelFrasco() {
+  const desde = esFechaValida(estado.ajustes.inicio) ? estado.ajustes.inicio : '2020-01-01';
+  try {
+    const recuerdo = await datos.recuerdoAlAzar(desde, hoy());
+    estado.recuerdoDelFrasco = recuerdo || 'vacio';
+  } catch (e) {
+    estado.recuerdoDelFrasco = 'vacio';
+  }
+  dibujar();
+}
+
 async function cargarMes() {
   try {
     estado.entradasDelMes = await datos.traerMes(estado.mesCalendario);
   } catch (e) {
     estado.entradasDelMes = [];
   }
-  if (estado.verCalendario) dibujar();
+  if (estado.vistaDiario === 'calendario') dibujar();
 }
 
 function moverMes(cuantos) {
@@ -806,11 +888,12 @@ function conectarEventos() {
       return;
     }
 
-    if (accion === 'hoja-fondo' || accion === 'confirmar-fondo' || accion === 'foto-fondo') {
+    if (accion === 'hoja-fondo' || accion === 'confirmar-fondo' || accion === 'foto-fondo' || accion === 'visor-fondo') {
       elemento.addEventListener('click', (evento) => {
         if (evento.target !== elemento) return;
         if (accion === 'hoja-fondo') cerrarHoja();
         else if (accion === 'confirmar-fondo') { estado.confirmacion = null; dibujar(); }
+        else if (accion === 'visor-fondo') { estado.visor = null; dibujar(); }
         else { estado.fotoAmpliada = null; dibujar(); }
       });
       return;
@@ -987,6 +1070,19 @@ function conectarEventos() {
   }
 
   activarArrastreDeHoja(cerrarHoja);
+
+  if (estado.visor) {
+    activarVisor(raiz, {
+      cambiar: cambiarFotoDelVisor,
+      refrescarAyuda: () => {
+        const ayuda = raiz.querySelector('.visor-ayuda');
+        if (!ayuda) return;
+        ayuda.textContent = estado.visor.escala > 1
+          ? 'Arrastra para moverte · doble toque para alejar'
+          : 'Pellizca para acercar · desliza para cambiar';
+      },
+    });
+  }
 }
 
 dibujar();

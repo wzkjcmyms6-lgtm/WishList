@@ -300,6 +300,41 @@ input:focus, textarea:focus { outline: 2px solid var(--pink-deep); outline-offse
 .calendario-dia.elegido .calendario-punto { background: var(--cream); }
 .calendario-dia-elegido { margin-top: 18px; }
 
+/* ---------- Álbum y visor ---------- */
+.album { padding: 0 22px 24px; }
+.volver-lista { width: 100%; margin-bottom: 14px; }
+.album-grilla { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.album-foto { padding: 0; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--chip-bg); }
+.album-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.visor { position: fixed; inset: 0; z-index: 90; background: #000; display: flex; align-items: center; justify-content: center; animation: overlayIn 0.15s ease both; }
+.visor-lienzo { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; touch-action: none; }
+.visor-img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; will-change: transform; }
+.visor-contador { position: fixed; top: calc(22px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.8); font-size: 13px; font-weight: 700; z-index: 91; }
+.visor-ayuda { position: fixed; bottom: calc(22px + env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; color: rgba(255,255,255,0.55); font-size: 12px; z-index: 91; pointer-events: none; }
+
+/* ---------- Celebración ---------- */
+.celebracion { position: relative; overflow: hidden; background: var(--card); border-radius: var(--radius-lg); padding: 24px 20px; text-align: center; box-shadow: 0 8px 22px rgba(0,0,0,0.08); }
+.celebracion-emoji { font-size: 38px; }
+.celebracion-texto { font-family: var(--font-heading); font-size: 21px; font-weight: 800; margin-top: 4px; }
+.celebracion-bajada { color: var(--muted); font-size: 13.5px; margin-top: 4px; }
+.papelitos { position: absolute; inset: 0; pointer-events: none; }
+.papelito { position: absolute; top: -12px; width: 7px; height: 11px; border-radius: 2px; opacity: 0.85; animation: caer 3.2s linear infinite; }
+.papelito.p0 { background: var(--pink); } .papelito.p1 { background: var(--blue); }
+.papelito.p2 { background: var(--pink-deep); } .papelito.p3 { background: var(--blue-deep); }
+.papelito.p4 { background: #F6C96B; } .papelito.p5 { background: var(--pink); }
+.papelito.p6 { background: var(--blue); }
+@keyframes caer {
+  0% { transform: translateY(-12px) rotate(0deg); opacity: 0; }
+  12% { opacity: 0.9; }
+  100% { transform: translateY(190px) rotate(380deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .papelitos { display: none; } }
+
+/* ---------- Frasco ---------- */
+.frasco { width: 100%; min-height: 56px; border-radius: var(--radius-lg); background: var(--card); font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--ink); display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+.frasco-emoji { font-size: 20px; }
+.frasco-abierto .recuerdo-texto { margin: 8px 0 10px; font-size: 14.5px; line-height: 1.5; }
+
 .pasos { margin: 12px 0 0; padding-left: 20px; font-size: 13.5px; line-height: 1.7; color: var(--ink); }
 .pasos li { margin-bottom: 4px; }
 

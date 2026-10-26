@@ -69,8 +69,14 @@ export const estado = {
   comentariosAbiertos: '',  // idEntrada con los comentarios desplegados
   mesCalendario: '',        // 'AAAA-MM' cuando se mira el calendario
   entradasDelMes: [],
-  verCalendario: false,
+  vistaDiario: 'lista',     // lista | calendario | album
   diaElegido: '',
+  fotosAlbum: [],
+  cuantasFotos: 30,
+  hayMasFotos: false,
+  albumCargando: false,
+  visor: null,              // { indice, grande, escala, x, y }
+  recuerdoDelFrasco: null,
   editandoRespuesta: false,
   editandoGracias: false,
   cuantasEntradas: 15,

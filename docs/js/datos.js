@@ -209,6 +209,36 @@ export async function traerMiniatura(id) {
   return valor;
 }
 
+// El álbum sí descarga las miniaturas: es lo que viene a mirar.
+export async function traerFotosDelAlbum(cuantas) {
+  const snap = await getDocs(query(fotosCol, orderBy('createdAt', 'desc'), limit(cuantas)));
+  return snap.docs.map((d) => {
+    const datos = d.data();
+    miniaturasEnMemoria.set(d.id, datos.mini);
+    return { id: d.id, entryId: datos.entryId, mini: datos.mini, createdAt: datos.createdAt };
+  });
+}
+
+// Un recuerdo al azar sin tener que descargar todos: se elige una fecha al azar
+// del tiempo que llevamos juntos y se trae el recuerdo más cercano.
+export async function recuerdoAlAzar(desde, hasta) {
+  const inicio = new Date(`${desde}T12:00:00Z`).getTime();
+  const fin = new Date(`${hasta}T12:00:00Z`).getTime();
+  const alAzar = new Date(inicio + Math.random() * Math.max(1, fin - inicio));
+  const fecha = alAzar.toISOString().slice(0, 10);
+
+  const antes = await getDocs(query(
+    entradasCol, where('fecha', '<=', fecha), orderBy('fecha', 'desc'), limit(1),
+  ));
+  if (antes.size) return { id: antes.docs[0].id, ...antes.docs[0].data() };
+
+  const despues = await getDocs(query(
+    entradasCol, where('fecha', '>=', fecha), orderBy('fecha', 'asc'), limit(1),
+  ));
+  if (despues.size) return { id: despues.docs[0].id, ...despues.docs[0].data() };
+  return null;
+}
+
 export async function traerFotoGrande(id) {
   const instantanea = await getDoc(doc(fotosGrandesCol, id));
   return instantanea.exists() ? instantanea.data().grande : null;
