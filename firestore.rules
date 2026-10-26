@@ -3,30 +3,40 @@
 // Cómo se pegan: consola de Firebase → Firestore Database → pestaña "Reglas" →
 // borrar todo lo que haya → pegar esto → "Publicar".
 //
-// Los dos UID de abajo no son secretos: son identificadores públicos. Sin la
-// contraseña de la cuenta no sirven para entrar.
+// La identidad es el CORREO, no el UID. El UID cambia cada vez que se vuelve a
+// crear una cuenta (por ejemplo si se pierde la contraseña) y eso dejaría las
+// entradas viejas huérfanas y estas reglas desactualizadas. El correo no cambia.
+// Por eso los documentos guardan 'autor' con el perfil ('lentina' / 'manolo')
+// en vez del UID.
+//
+// Que estos correos estén a la vista no abre nada: sin la contraseña de la
+// cuenta no se puede iniciar sesión, y los dos ya están registrados, así que
+// nadie más puede crearlos.
 
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function uidLentina()   { return 'cwGgB950fxRGy5r8lFlFql7dvqa2'; }
-    function uidManuelito() { return '8E8R6LENkYMtf9GP4Iji915Linh1'; }
+    function correoLentina()   { return 'lentina@ositos.local'; }
+    function correoManuelito() { return 'manuelito@ositos.local'; }
+
+    function correo() {
+      return request.auth != null ? request.auth.token.email : '';
+    }
 
     // Solo nosotros dos, y con sesión iniciada.
     function somosNosotros() {
-      return request.auth != null
-        && request.auth.uid in [uidLentina(), uidManuelito()];
+      return correo() in [correoLentina(), correoManuelito()];
     }
 
-    // Los deseos y comidas guardan el perfil ('lentina' / 'manolo'), no el UID.
+    // 'lentina' o 'manolo': es lo que guardan los documentos.
     function miPerfil() {
-      return request.auth.uid == uidLentina() ? 'lentina' : 'manolo';
+      return correo() == correoLentina() ? 'lentina' : 'manolo';
     }
 
-    function soyElAutor()  { return request.auth.uid == resource.data.authorUid; }
-    function loCreoComoMio() { return request.resource.data.authorUid == request.auth.uid; }
+    function soyElAutor()    { return resource.data.autor == miPerfil(); }
+    function loCreoComoMio() { return request.resource.data.autor == miPerfil(); }
 
     // true si la edición toca únicamente los campos de la lista.
     function soloCambia(campos) {
@@ -65,19 +75,19 @@ service cloud.firestore {
     }
 
     // ---------- Pregunta del día ----------
-    // Un documento por persona y día, con id "AAAA-MM-DD_uid".
+    // Un documento por persona y día, con id "AAAA-MM-DD_perfil".
     // La respuesta del otro recién se puede leer cuando ya existe la tuya: esto
     // lo impone el servidor, no la pantalla.
 
     match /answers/{answerId} {
       allow read: if somosNosotros() && (
-        resource.data.uid == request.auth.uid
-        || exists(/databases/$(database)/documents/answers/$(resource.data.date + '_' + request.auth.uid))
+        soyElAutor()
+        || exists(/databases/$(database)/documents/answers/$(resource.data.date + '_' + miPerfil()))
       );
       allow create: if somosNosotros()
-        && request.resource.data.uid == request.auth.uid
-        && answerId == request.resource.data.date + '_' + request.auth.uid;
-      allow update: if somosNosotros() && resource.data.uid == request.auth.uid;
+        && loCreoComoMio()
+        && answerId == request.resource.data.date + '_' + miPerfil();
+      allow update: if somosNosotros() && soyElAutor();
       allow delete: if false;
     }
 
@@ -86,9 +96,9 @@ service cloud.firestore {
     match /gratitude/{gratitudeId} {
       allow read: if somosNosotros();
       allow create: if somosNosotros()
-        && request.resource.data.uid == request.auth.uid
-        && gratitudeId == request.resource.data.date + '_' + request.auth.uid;
-      allow update, delete: if somosNosotros() && resource.data.uid == request.auth.uid;
+        && loCreoComoMio()
+        && gratitudeId == request.resource.data.date + '_' + miPerfil();
+      allow update, delete: if somosNosotros() && soyElAutor();
     }
 
     // ---------- Ajustes compartidos ----------
@@ -97,7 +107,7 @@ service cloud.firestore {
       allow read, write: if somosNosotros();
     }
 
-    // ---------- Deseos (la wishlist de siempre) ----------
+    // ---------- Deseos ----------
 
     match /wishlist_items/{itemId} {
       allow read:   if somosNosotros();
@@ -120,7 +130,7 @@ service cloud.firestore {
     // Es la chuleta de regalos de Manuelito: Lentina no lo lee ni lo escribe.
 
     match /preferences/lentina {
-      allow read, write: if request.auth != null && request.auth.uid == uidManuelito();
+      allow read, write: if correo() == correoManuelito();
     }
 
     // Todo lo que no esté nombrado arriba queda cerrado.

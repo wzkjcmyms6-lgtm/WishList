@@ -16,18 +16,30 @@ Objetivo: que el diario sea de verdad privado antes de que haya fotos y textos
 |---|---|---|
 | ✅ | `CLAUDE.md`, `PLAN.md`, `firestore.rules` | Claude |
 | ✅ | Limpiar archivos de la versión vieja (Supabase/Render) | Claude |
-| 🟡 | Crear proyecto Firebase nuevo (Spark), Firestore y Authentication por correo | Juan |
-| ⬜ | Crear las 2 cuentas y pasar los UID | Juan |
-| ⬜ | Rellenar los UID en `firestore.rules` y pegarlas en la consola | los dos |
-| ⬜ | Migrar `wishlist_items` (1), `food_items` (0) y `preferences/lentina` (1) con los mismos IDs, con conteo antes y después | los dos |
+| ✅ | Crear proyecto Firebase `ositos-e6e10` (Spark), Firestore (southamerica-east1) y Authentication por correo | Juan |
+| ✅ | Crear las 2 cuentas: `lentina@ositos.local` y `manuelito@ositos.local` | Juan |
+| ✅ | Reglas probadas con el emulador (41 pruebas en verde) | Claude |
+| 🟡 | Pegar las reglas en la consola | Juan |
+| 🟡 | Arreglar el acceso de Manuelito con `docs/cuenta.html` | Juan |
+| ❌ | ~~Migrar los datos viejos~~ — **cancelada por decisión de Juan.** El diario arranca vacío. Los datos siguen intactos en `elita---ejercicios` por si algún día se quieren recuperar | — |
 | ⬜ | Reorganizar el código en `docs/js/` | Claude |
 | ⬜ | Login real con Firebase Auth, recordado en cada celular; PIN local como candado rápido (hasheado, nunca en el código) | Claude |
+| ⬜ | Botón "Cambiar contraseña" en Ajustes (evita tener que recrear la cuenta) | Claude |
 | ⬜ | README nuevo sin PIN, con qué es y cómo instalarlo en el iPhone | Claude |
-| ⬜ | Borrar la página temporal de migración | Claude |
+| ⬜ | Borrar `docs/cuenta.html` cuando el acceso funcione | Claude |
 
 **Por qué un proyecto nuevo:** en Firestore las reglas se combinan con OR, así que
 la regla abierta que necesita la app "Elita – Mis Ejercicios" dejaría abierto
 también el diario si compartieran proyecto.
+
+**Por qué la identidad es el correo y no el UID:** el UID cambia cada vez que se
+vuelve a crear una cuenta, y la consola de Firebase no permite cambiar una
+contraseña a mano cuando el correo es inventado (el "restablecer" manda un mail
+que no llega a ningún lado). Durante la Fase 0 eso obligó a recrear la cuenta de
+Manuelito tres veces, y cada vez había que reescribir y volver a pegar las
+reglas. Con el correo como identidad eso ya no pasa, y además las entradas
+viejas no quedan huérfanas: los documentos guardan `autor` con el perfil
+(`'lentina'` / `'manolo'`), nunca el UID.
 
 ---
 

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cuenta de Ositos</title>
+<link rel="icon" type="image/jpeg" href="favicon.jpg?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0 auto; padding: 24px 18px 48px; max-width: 460px;
+    background: #FBF3E7; color: #1F1B16;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  h1 { font-family: 'Poppins', sans-serif; font-size: 25px; font-weight: 800; margin: 0 0 6px; }
+  .sub { color: #8A8074; font-size: 14.5px; line-height: 1.45; margin-bottom: 22px; }
+  .tarjeta { background: #fff; border-radius: 20px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 14px rgba(0,0,0,.06); }
+  .perfiles { display: flex; gap: 12px; margin-bottom: 16px; }
+  .perfil {
+    flex: 1; border: 2px solid #E6DCC9; background: #fff; border-radius: 16px;
+    padding: 14px 8px; font-size: 14px; font-weight: 700; font-family: inherit;
+    color: #1F1B16; cursor: pointer; min-height: 72px;
+  }
+  .perfil .emo { display: block; font-size: 26px; margin-bottom: 4px; }
+  .perfil.sel[data-id="lentina"] { border-color: #C24B7C; background: #FCE3ED; }
+  .perfil.sel[data-id="manolo"]  { border-color: #2F7A73; background: #E1F4F0; }
+  label { display: block; font-size: 12.5px; font-weight: 700; color: #8A8074; margin: 0 0 6px; }
+  input {
+    width: 100%; padding: 14px; font-size: 16px; font-family: inherit; color: #1F1B16;
+    border: 1.5px solid #E6DCC9; border-radius: 12px; background: #fff; margin-bottom: 4px;
+  }
+  .ver {
+    background: none; border: none; font-family: inherit; font-size: 13px; font-weight: 700;
+    color: #2F7A73; padding: 10px 0; cursor: pointer; min-height: 44px;
+  }
+  .botones { display: flex; gap: 10px; margin-top: 10px; }
+  button.accion {
+    flex: 1; min-height: 52px; padding: 14px 10px; border: none; border-radius: 999px;
+    font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+  }
+  .principal { background: #1F1B16; color: #FBF3E7; }
+  .secundario { background: #EFE6D6; color: #1F1B16; }
+  button:disabled { opacity: .5; }
+  .log { margin-top: 14px; font-size: 13.5px; line-height: 1.55; }
+  .log div { margin-bottom: 6px; }
+  .ok { color: #2F7A73; font-weight: 600; } .error { color: #C0392B; } .aviso { color: #8A8074; font-size: 12.5px; }
+  .caja-ok { background: #E1F4F0; border-radius: 16px; padding: 16px; font-size: 14.5px; line-height: 1.5; margin-top: 12px; }
+  .ayuda { font-size: 13px; color: #8A8074; line-height: 1.55; }
+  .ayuda b { color: #1F1B16; }
+</style>
+</head>
+<body>
+
+<h1>Cuenta de Ositos 🐻‍❄️🐻</h1>
+<p class="sub">
+  Para arreglar el acceso de una vez. Acá puedes <b>ver la contraseña mientras la escribes</b>,
+  cosa que la consola de Firebase no deja hacer.
+</p>
+
+<div class="tarjeta">
+  <div class="perfiles">
+    <button class="perfil sel" data-id="manolo" type="button"><span class="emo">🐻</span>Manuelito</button>
+    <button class="perfil" data-id="lentina" type="button"><span class="emo">🐻‍❄️</span>Lentina</button>
+  </div>
+
+  <label for="correo">Correo</label>
+  <input id="correo" type="email" value="manuelito@ositos.local"
+         autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="off">
+
+  <label for="clave" style="margin-top:12px">Contraseña (mínimo 6 caracteres)</label>
+  <input id="clave" type="password" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+  <button class="ver" id="btn-ver" type="button">👁 Ver la contraseña</button>
+
+  <div class="botones">
+    <button class="accion principal" id="btn-entrar">Entrar</button>
+    <button class="accion secundario" id="btn-crear">Crear cuenta</button>
+  </div>
+
+  <div class="log" id="log"></div>
+</div>
+
+<div class="tarjeta">
+  <div class="ayuda">
+    <b>¿Cuál de los dos botones uso?</b><br>
+    Toca <b>Entrar</b> primero. Si dice que no coincide, toca <b>Crear cuenta</b>:
+    si responde que <i>ya existe</i>, entonces el correo está bien y lo que falla es la
+    contraseña — bórrala en Firebase → Authentication → Users → ⋮ → Borrar cuenta,
+    y vuelve acá a tocar <b>Crear cuenta</b> con la contraseña que quieras.
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
+import {
+  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  setPersistence, browserLocalPersistence,
+} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
+
+const app = initializeApp({
+  apiKey: 'AIzaSyA2lkETQlRHRapFm8KPsTx-CB-oJbbD1kw',
+  authDomain: 'ositos-e6e10.firebaseapp.com',
+  projectId: 'ositos-e6e10',
+  storageBucket: 'ositos-e6e10.firebasestorage.app',
+  messagingSenderId: '127533519906',
+  appId: '1:127533519906:web:aae0604a5015d1896ca67b',
+});
+const auth = getAuth(app);
+await setPersistence(auth, browserLocalPersistence);
+
+const $ = (id) => document.getElementById(id);
+const limpiar = () => { $('log').innerHTML = ''; };
+const escribir = (texto, clase = '') => {
+  const linea = document.createElement('div');
+  if (clase) linea.className = clase;
+  linea.textContent = texto;
+  $('log').appendChild(linea);
+};
+
+let perfil = 'manolo';
+document.querySelectorAll('.perfil').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.perfil').forEach((o) => o.classList.remove('sel'));
+    btn.classList.add('sel');
+    perfil = btn.dataset.id;
+    $('correo').value = `${perfil}@ositos.local`;
+    limpiar();
+  });
+});
+
+$('btn-ver').addEventListener('click', () => {
+  const campo = $('clave');
+  const oculto = campo.type === 'password';
+  campo.type = oculto ? 'text' : 'password';
+  $('btn-ver').textContent = oculto ? '🙈 Ocultar la contraseña' : '👁 Ver la contraseña';
+});
+
+const ERRORES = {
+  'auth/invalid-credential': 'El correo o la contraseña no coinciden. Firebase no dice cuál de los dos es.',
+  'auth/user-not-found': 'No existe ninguna cuenta con ese correo.',
+  'auth/wrong-password': 'La contraseña no es esa.',
+  'auth/invalid-email': 'Ese correo está mal escrito.',
+  'auth/weak-password': 'La contraseña es muy corta: mínimo 6 caracteres.',
+  'auth/email-already-in-use': 'Esa cuenta YA existe.',
+  'auth/too-many-requests': 'Demasiados intentos seguidos. Espera unos minutos.',
+  'auth/network-request-failed': 'Sin conexión. Revisa el internet del celular.',
+  'auth/operation-not-allowed': 'El acceso por correo y contraseña está apagado en Firebase → Authentication → Sign-in method.',
+};
+
+function datos() {
+  return { correo: $('correo').value.trim().toLowerCase(), clave: $('clave').value };
+}
+
+function exito(correo) {
+  const caja = document.createElement('div');
+  caja.className = 'caja-ok';
+  caja.innerHTML = `🎉 <b>Funciona.</b> Entraste como ${correo}.<br>` +
+    'Avísale a Claude que ya entras y seguimos con la app.';
+  $('log').appendChild(caja);
+}
+
+$('btn-entrar').addEventListener('click', async () => {
+  const { correo, clave } = datos();
+  limpiar();
+  if (!correo || !clave) { escribir('Faltan el correo o la contraseña.', 'error'); return; }
+  $('btn-entrar').disabled = true;
+  try {
+    await signInWithEmailAndPassword(auth, correo, clave);
+    escribir('✅ Entraste bien.', 'ok');
+    exito(correo);
+  } catch (e) {
+    const codigo = e.code || e.message;
+    escribir(`❌ ${ERRORES[codigo] || codigo}`, 'error');
+    escribir(`Probé con: ${correo} · contraseña de ${clave.length} caracteres · código ${codigo}`, 'aviso');
+    if (codigo === 'auth/invalid-credential') {
+      escribir('Toca ahora "Crear cuenta" para saber si el problema es el correo o la contraseña.', 'aviso');
+    }
+  } finally {
+    $('btn-entrar').disabled = false;
+  }
+});
+
+$('btn-crear').addEventListener('click', async () => {
+  const { correo, clave } = datos();
+  limpiar();
+  if (!correo || !clave) { escribir('Faltan el correo o la contraseña.', 'error'); return; }
+  $('btn-crear').disabled = true;
+  try {
+    await createUserWithEmailAndPassword(auth, correo, clave);
+    escribir('✅ Cuenta creada y sesión iniciada.', 'ok');
+    exito(correo);
+  } catch (e) {
+    const codigo = e.code || e.message;
+    escribir(`❌ ${ERRORES[codigo] || codigo}`, 'error');
+    if (codigo === 'auth/email-already-in-use') {
+      escribir(`El correo ${correo} está bien escrito y la cuenta existe: entonces lo que no coincide es la contraseña.`, 'aviso');
+      escribir('Bórrala en Firebase → Authentication → Users → ⋮ → Borrar cuenta, y vuelve acá a tocar "Crear cuenta".', 'aviso');
+    } else {
+      escribir(`Probé con: ${correo} · contraseña de ${clave.length} caracteres · código ${codigo}`, 'aviso');
+    }
+  } finally {
+    $('btn-crear').disabled = false;
+  }
+});
+</script>
+
+</body>
+</html>
