@@ -31,6 +31,7 @@
   .perfil.sel[data-id="lentina"] { border-color: #C24B7C; background: #FCE3ED; }
   .perfil.sel[data-id="manolo"]  { border-color: #2F7A73; background: #E1F4F0; }
   label { display: block; font-size: 12.5px; font-weight: 700; color: #8A8074; margin-bottom: 6px; }
+  label + input + .pista { font-size: 12px; color: #8A8074; line-height: 1.4; margin: 6px 0 14px; }
   input {
     width: 100%; padding: 14px; font-size: 16px; font-family: inherit; color: #1F1B16;
     border: 1.5px solid #E6DCC9; border-radius: 12px; background: #fff;
@@ -64,6 +65,10 @@
     <button class="perfil sel" data-id="manolo" type="button"><span class="emo">🐻</span>Manuelito</button>
     <button class="perfil" data-id="lentina" type="button"><span class="emo">🐻‍❄️</span>Lentina</button>
   </div>
+  <label for="correo">Correo de la cuenta</label>
+  <input id="correo" type="email" value="manuelito@ositos.local"
+         autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username">
+  <div class="pista">Tiene que ser idéntico al de la columna "Identificador" en Firebase → Authentication → Users.</div>
   <label for="clave">Contraseña</label>
   <input id="clave" type="password" autocomplete="current-password" placeholder="La que creaste en Firebase">
   <button class="accion" id="btn-entrar">Entrar</button>
@@ -128,22 +133,36 @@ document.querySelectorAll('.perfil').forEach((btn) => {
     document.querySelectorAll('.perfil').forEach((o) => o.classList.remove('sel'));
     btn.classList.add('sel');
     perfil = btn.dataset.id;
+    $('correo').value = `${perfil}@ositos.local`;
   });
 });
+
+const ERRORES = {
+  'auth/invalid-credential': 'El correo o la contraseña no coinciden. Firebase no dice cuál de los dos es, así que revisa el correo exacto en Authentication → Users.',
+  'auth/user-not-found': 'No existe una cuenta con ese correo. Cópialo tal cual de Authentication → Users.',
+  'auth/wrong-password': 'La contraseña no es esa.',
+  'auth/invalid-email': 'Ese correo está mal escrito.',
+  'auth/too-many-requests': 'Demasiados intentos seguidos. Espera unos minutos y vuelve a probar.',
+  'auth/network-request-failed': 'Sin conexión. Revisa el internet del celular.',
+};
 
 let traido = null;
 
 $('btn-entrar').addEventListener('click', async () => {
   const clave = $('clave').value;
+  const correo = $('correo').value.trim().toLowerCase();
   $('log-entrar').innerHTML = '';
   if (!clave) { escribir('log-entrar', 'Escribe la contraseña.', 'error'); return; }
+  if (!correo) { escribir('log-entrar', 'Escribe el correo de la cuenta.', 'error'); return; }
   $('btn-entrar').disabled = true;
   try {
-    await signInWithEmailAndPassword(auth, `${perfil}@ositos.local`, clave);
+    await signInWithEmailAndPassword(auth, correo, clave);
     escribir('log-entrar', '✅ Dentro. Leyendo el proyecto viejo…', 'ok');
     await contarAntes();
   } catch (e) {
-    escribir('log-entrar', `❌ No se pudo entrar: ${e.code || e.message}`, 'error');
+    const codigo = e.code || e.message;
+    escribir('log-entrar', `❌ ${ERRORES[codigo] || codigo}`, 'error');
+    escribir('log-entrar', `Intenté entrar como: ${correo}  ·  código: ${codigo}`, 'aviso');
     $('btn-entrar').disabled = false;
   }
 });
