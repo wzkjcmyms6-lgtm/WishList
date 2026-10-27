@@ -176,3 +176,42 @@ marcarla como cocinada ofrece escribir el recuerdo, igual que los planes.
 - Modo oscuro.
 - Notas de voz cortas (máx. 60 s, cada una en su propio documento).
 - Notificaciones: **no todavía.** Explicar las opciones gratis y esperar decisión.
+
+---
+
+## Revisión de uso (UX/UI) ✅
+
+Auditoría medida en un navegador real a 390 y 320 px, no a ojo: áreas táctiles,
+contraste calculado contra el fondo real, desbordes, tamaño de letra en los
+campos y nombres para lectores de pantalla. Salieron **69 problemas**; quedaron
+**0** (los 3 que faltan son texto sobre degradados, que no se puede medir con
+una fórmula y se revisó en las capturas).
+
+**Lo que se arregló**
+
+| Qué pasaba | Qué se hizo |
+|---|---|
+| El texto gris (`--muted`) quedaba en 3.1–3.9 de contraste; el mínimo legible es 4.5 | `--muted` más oscuro en claro y más claro en oscuro; tokens nuevos `--rosa-texto`, `--verde-texto` y `--danger-texto` solo para letra chica (la paleta de marca sigue igual en los rellenos) |
+| Fichas de filtro de 30 px, reacciones de 38, pestañas de 37, "Comentar" de 36 | Todo a 44 px o más |
+| El buscador tenía letra de 14,5 px: el iPhone hacía zoom al tocarlo, y a 320 px se salía de la pantalla | Letra de 16 px, alto de 44 y `min-width: 0` |
+| Al tocar un emoji o una etiqueta mientras escribías, se perdía el cursor | Se recuerda el campo y la posición del cursor en cada redibujado |
+| El scroll saltaba al principio de la lista en cada cambio | Se guarda y se devuelve la posición (y al cambiar de sección sí empieza arriba) |
+| La nota de voz se cortaba y el reproductor de Spotify se reiniciaba con cualquier cambio en pantalla | Esos nodos se mudan tal cual al redibujar (`data-persistente`) — probado con audio real: sigue en el mismo segundo |
+| Mostrar y esconder el aviso ("¡Guardado!") redibujaba toda la app dos veces | El aviso vive fuera de `#app`, en su propio nodo |
+| "Atrás" (o el gesto del iPhone) salía de la app aunque hubiera una hoja abierta | Una marca en el historial: atrás cierra la hoja, sale del álbum o vuelve a Inicio |
+| Dos toques seguidos en "Guardar" creaban dos recuerdos iguales | Un candado en los formularios, con suelta de emergencia |
+| Tocar fuera de la hoja tiraba lo escrito sin avisar | Pregunta "¿Cierras sin guardar lo que escribiste?" |
+| Mientras llegaban los datos decía "todavía no hay nada", como si se hubiera borrado el diario | Tarjetas grises y "Trayendo lo nuestro…" |
+| Dentro del panel nada avisaba que no había internet | Aviso: lo que escribas se guarda y se sube cuando vuelva |
+| Al abrir la hoja había que tocar el campo para empezar | El teclado aparece solo (la regla de los 30 segundos) |
+| Botones de solo ícono sin nombre para VoiceOver; sin foco visible para teclado | 18 `aria-label`, `aria-pressed` en reacciones y ánimos, y anillo de foco |
+| El zoom del navegador estaba bloqueado en toda la app | Se permite agrandar; el pellizco solo se intercepta dentro del visor de fotos |
+| El aviso de versión nueva tapaba el botón +; el toast no respetaba el área segura del iPhone | Aviso arriba y medidas con `env(safe-area-inset-*)` |
+
+**Pruebas:** 11 suites en un navegador real (190 comprobaciones) más la
+auditoría automática. La suite nueva `probar-ux.js` cubre el scroll, el foco,
+el "atrás", el doble toque y el no perder lo escrito.
+
+**Queda anotado, no es una falla:** "Comida" (lo que les gusta comer) y
+"Recetas" (lo que quieren cocinar) se parecen de nombre. Si alguna vez
+confunden, conviene renombrar una de las dos.

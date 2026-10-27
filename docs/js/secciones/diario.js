@@ -29,7 +29,8 @@ function dibujarFotos(entrada) {
   if (!fotos.length) return '';
   const clase = fotos.length === 1 ? 'una' : fotos.length === 2 ? 'dos' : 'varias';
   const celdas = fotos.map((id) =>
-    `<button type="button" class="entrada-foto" data-accion="abrir-foto" data-foto="${id}" data-cargar="${id}">
+    `<button type="button" class="entrada-foto" aria-label="Ver la foto"
+             data-accion="abrir-foto" data-foto="${id}" data-cargar="${id}">
       <span class="foto-cargando"></span>
     </button>`).join('');
   return `<div class="entrada-fotos ${clase}">${celdas}</div>`;
@@ -41,7 +42,10 @@ function dibujarAudios(entrada) {
   const piezas = audios.map((id) => {
     const cargado = estado.audiosSonando[id];
     if (cargado) {
-      return `<audio class="audio-nota" controls autoplay src="${cargado.audio}"></audio>`;
+      // data-persistente: al redibujar, app.js mueve este mismo nodo a la
+      // pantalla nueva en vez de crear otro, así la nota no se corta.
+      return `<audio class="audio-nota" controls autoplay
+                     data-persistente="audio-${id}" src="${cargado.audio}"></audio>`;
     }
     return `<button type="button" class="audio-boton" data-accion="oir-audio" data-audio="${id}">
       ▶️ <span>Nota de voz</span>
@@ -57,13 +61,15 @@ function dibujarReacciones(entrada) {
 
   const mostradas = puestas.length
     ? `<div class="entrada-reacciones-puestas">${puestas.map(([quien, emoji]) =>
-        `<span class="reaccion-puesta" title="${escapar(nombreDe(quien))}">${emoji}</span>`).join('')}</div>`
+        `<span class="reaccion-puesta" title="${escapar(nombreDe(quien))}"
+               aria-label="${escapar(nombreDe(quien))} reaccionó con ${emoji}">${emoji}</span>`).join('')}</div>`
     : '';
 
   if (entrada.autor === estado.sesion) return mostradas;
 
   const opciones = REACCIONES.map((emoji) =>
     `<button class="reaccion ${mias === emoji ? 'elegida' : ''}" data-accion="reaccionar"
+             aria-label="Reaccionar con ${emoji}" aria-pressed="${mias === emoji}"
              data-id="${entrada.id}" data-emoji="${emoji}">${emoji}</button>`).join('');
   return `${mostradas}<div class="entrada-reacciones">${opciones}</div>`;
 }
@@ -77,8 +83,8 @@ function tarjetaEntrada(entrada, esBorrador) {
 
   const propia = esBorrador || entrada.autor === estado.sesion;
   const acciones = propia ? `<div class="entrada-acciones">
-      <button class="icon-btn" data-accion="${esBorrador ? 'editar-borrador' : 'editar-entrada'}" data-id="${entrada.id}">✏️</button>
-      <button class="icon-btn danger" data-accion="${esBorrador ? 'borrar-borrador' : 'borrar-entrada'}" data-id="${entrada.id}">🗑️</button>
+      <button class="icon-btn" aria-label="Editar el recuerdo" data-accion="${esBorrador ? 'editar-borrador' : 'editar-entrada'}" data-id="${entrada.id}">✏️</button>
+      <button class="icon-btn danger" aria-label="Borrar el recuerdo" data-accion="${esBorrador ? 'borrar-borrador' : 'borrar-entrada'}" data-id="${entrada.id}">🗑️</button>
     </div>` : '';
 
   return `<article class="entrada card-enter">
@@ -117,7 +123,8 @@ function dibujarComentarios(entrada) {
     return `<div class="comentario">
       <span class="comentario-autor ${claseTema(perfil.tema)}">${perfil.emoji}</span>
       <div class="comentario-texto">${escapar(comentario.texto)}</div>
-      ${propio ? `<button class="comentario-borrar" data-accion="borrar-comentario"
+      ${propio ? `<button class="comentario-borrar" aria-label="Borrar mi comentario"
+                   data-accion="borrar-comentario"
                    data-id="${entrada.id}" data-comentario="${comentario.id}">✕</button>` : ''}
     </div>`;
   }).join('');
@@ -126,7 +133,7 @@ function dibujarComentarios(entrada) {
     ${boton}
     <div class="comentarios">
       ${burbujas || '<div class="ajuste-nota">Todavía no hay comentarios.</div>'}
-      <form class="comentario-form" data-entrada="${entrada.id}">
+      <form class="comentario-form" id="comentario-${entrada.id}" data-entrada="${entrada.id}">
         <input type="text" name="texto" maxlength="500" required placeholder="Escribe un comentario…" />
         <button type="submit" class="btn btn-secondary">Enviar</button>
       </form>
@@ -300,7 +307,8 @@ function dibujarGrabador() {
         <span class="grabando-tiempo">${enMinutos(grabando.segundos || 0)}</span>
         <span class="ajuste-nota">se corta al minuto</span>
         <button type="button" class="btn btn-primary" data-accion="parar-grabacion">Listo</button>
-        <button type="button" class="btn btn-danger-text" data-accion="cancelar-grabacion">✕</button>
+        <button type="button" class="btn btn-danger-text" aria-label="Cancelar la grabación"
+                data-accion="cancelar-grabacion">✕</button>
       </div>
     </div>`;
   }
@@ -322,6 +330,7 @@ export function dibujarHojaEntrada() {
 
   const animos = ANIMOS.map((emoji) =>
     `<button type="button" class="animo ${item.animo === emoji ? 'elegido' : ''}"
+             aria-label="Ánimo ${emoji}" aria-pressed="${item.animo === emoji}"
              data-accion="elegir-animo" data-emoji="${emoji}">${emoji}</button>`).join('');
 
   const etiquetas = ETIQUETAS.map((e) =>

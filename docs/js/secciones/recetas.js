@@ -46,8 +46,8 @@ function tarjeta(receta) {
           </div>
         </div>
         ${propia ? `<div class="item-actions">
-          <button class="icon-btn" data-accion="editar-receta" data-id="${receta.id}">✏️</button>
-          <button class="icon-btn danger" data-accion="borrar-receta" data-id="${receta.id}">🗑️</button>
+          <button class="icon-btn" aria-label="Editar la receta" data-accion="editar-receta" data-id="${receta.id}">✏️</button>
+          <button class="icon-btn danger" aria-label="Borrar la receta" data-accion="borrar-receta" data-id="${receta.id}">🗑️</button>
         </div>` : ''}
       </div>
 

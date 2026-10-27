@@ -45,7 +45,7 @@ function fila(plan) {
           : ''}
       </div>
     </div>
-    ${propio ? `<button class="icon-btn danger" data-accion="borrar-plan" data-id="${plan.id}">🗑️</button>` : ''}
+    ${propio ? `<button class="icon-btn danger" aria-label="Borrar el plan" data-accion="borrar-plan" data-id="${plan.id}">🗑️</button>` : ''}
   </div>`;
 }
 

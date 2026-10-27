@@ -7,7 +7,7 @@
 // actualizarse a escondidas: Safari guarda caché con ganas y si no se avisa
 // alguien puede quedarse semanas con la versión vieja sin enterarse.
 
-const VERSION = 'ositos-v25';
+const VERSION = 'ositos-v26';
 
 const ARCHIVOS = [
   './',

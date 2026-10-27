@@ -63,7 +63,7 @@ function sobre(carta) {
           ${esMia ? 'Tuya para ' + escapar(nombreDe(pareja())) : 'De ' + escapar(nombreDe(carta.autor))}
         </div>
       </div>
-      ${esMia ? `<button class="icon-btn danger" data-accion="borrar-carta" data-id="${carta.id}">🗑️</button>` : ''}
+      ${esMia ? `<button class="icon-btn danger" aria-label="Borrar la carta" data-accion="borrar-carta" data-id="${carta.id}">🗑️</button>` : ''}
     </div>
     <div class="carta-cuando">${cuando}</div>
     ${accion}

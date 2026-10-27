@@ -5,8 +5,8 @@ import { escapar, claseTema } from '../ui.js';
 
 function tarjetaComida(comida, modo) {
   const acciones = modo === 'mia' ? `<div class="item-actions">
-    <button class="icon-btn" data-accion="editar-comida" data-id="${comida.id}">✏️</button>
-    <button class="icon-btn danger" data-accion="borrar-comida" data-id="${comida.id}">🗑️</button>
+    <button class="icon-btn" aria-label="Editar la comida" data-accion="editar-comida" data-id="${comida.id}">✏️</button>
+    <button class="icon-btn danger" aria-label="Borrar la comida" data-accion="borrar-comida" data-id="${comida.id}">🗑️</button>
   </div>` : '';
 
   const tema = claseTema(PERFILES[modo === 'mia' ? estado.sesion : pareja()].tema);

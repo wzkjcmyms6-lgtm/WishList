@@ -37,10 +37,12 @@ function escuchar(referencia, alRecibir) {
 
 export function escucharDatos(alCambiar) {
   dejarDeEscuchar();
+  estado.datosListos = false;
 
   escuchar(query(entradasCol, orderBy('fecha', 'desc'), limit(estado.cuantasEntradas)), (snap) => {
     estado.entradas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     estado.hayMasEntradas = snap.size === estado.cuantasEntradas;
+    estado.datosListos = true;
     alCambiar();
   });
 

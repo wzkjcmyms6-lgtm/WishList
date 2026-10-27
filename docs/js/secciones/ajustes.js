@@ -82,7 +82,7 @@ export function dibujarAjustes() {
           <div class="ajuste-nombre">${escapar(f.nombre)}</div>
           <div class="ajuste-detalle">${escapar(f.fecha)}</div>
         </div>
-        <button class="icon-btn danger" data-accion="borrar-fecha" data-indice="${i}">🗑️</button>
+        <button class="icon-btn danger" aria-label="Borrar la fecha" data-accion="borrar-fecha" data-indice="${i}">🗑️</button>
       </div>`).join('')
     : '<div class="ajuste-detalle">Todavía no agregaron ninguna.</div>';
 

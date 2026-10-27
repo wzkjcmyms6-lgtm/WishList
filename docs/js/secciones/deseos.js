@@ -57,8 +57,8 @@ function tarjetaDeseo(deseo, modo, indice) {
 
   if (modo === 'mia') {
     acciones = `<div class="item-actions">
-      <button class="icon-btn" data-accion="editar-deseo" data-id="${deseo.id}">✏️</button>
-      <button class="icon-btn danger" data-accion="borrar-deseo" data-id="${deseo.id}">🗑️</button>
+      <button class="icon-btn" aria-label="Editar el deseo" data-accion="editar-deseo" data-id="${deseo.id}">✏️</button>
+      <button class="icon-btn danger" aria-label="Borrar el deseo" data-accion="borrar-deseo" data-id="${deseo.id}">🗑️</button>
     </div>`;
   } else if (estado.misReservas.includes(deseo.id)) {
     extra = `<div class="reserve-btn reserved" data-accion="soltar-reserva" data-id="${deseo.id}">✅ Lo vas a regalar tú</div>`;

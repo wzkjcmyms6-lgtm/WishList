@@ -7,7 +7,7 @@ import {
 } from './estado.js';
 import {
   raiz, escapar, avisar, comprimirFoto, comprimirFotoSimple,
-  dibujarAviso, dibujarConfirmacion, dibujarFotoAmpliada, activarArrastreDeHoja,
+  dibujarConfirmacion, dibujarFotoAmpliada, activarArrastreDeHoja,
 } from './ui.js';
 import { hoy, esFechaValida } from './fechas.js';
 import { aplicarTema, guardarTema } from './tema.js';
@@ -33,17 +33,16 @@ import { dibujarComidas, dibujarHojaComida } from './secciones/comida.js';
 import { dibujarGustos } from './secciones/gustos.js';
 import { dibujarAjustes } from './secciones/ajustes.js';
 
-// El meta viewport no alcanza en iOS Safari: hay que bloquear el pellizco a
-// mano. El doble toque ya lo bloquea "touch-action: manipulation" en el CSS.
-document.addEventListener('gesturestart', (e) => e.preventDefault());
-document.addEventListener('gesturechange', (e) => e.preventDefault());
-// Dentro del visor de fotos el pellizco sí sirve: ahí lo maneja visor.js para
-// acercar la foto (y solo la foto, no toda la página).
+// Dentro del visor de fotos el pellizco lo maneja visor.js, así que ahí hay
+// que quitarle el gesto a Safari. Fuera del visor se deja pasar a propósito:
+// si alguien necesita agrandar la letra, tiene que poder hacerlo.
+document.addEventListener('gesturestart', (e) => { if (estado.visor) e.preventDefault(); });
+document.addEventListener('gesturechange', (e) => { if (estado.visor) e.preventDefault(); });
 document.addEventListener('touchmove', (e) => {
-  if (e.touches.length > 1 && !estado.visor) e.preventDefault();
+  if (e.touches.length > 1 && estado.visor) e.preventDefault();
 }, { passive: false });
 
-const avisarYRedibujar = (mensaje) => avisar(mensaje, dibujar);
+const avisarYRedibujar = (mensaje) => { avisar(mensaje); dibujar(); };
 
 const SECCIONES_LISTA = ['deseos', 'comida', 'gustos'];
 
@@ -51,6 +50,13 @@ const SECCIONES_LISTA = ['deseos', 'comida', 'gustos'];
 
 function dibujarCargando() {
   return '<div class="screen-boot"><div class="boot-spinner"></div></div>';
+}
+
+function dibujarEsqueleto() {
+  return `<div class="esqueleto" aria-busy="true">
+    <div class="esqueleto-aviso">Trayendo lo nuestro…</div>
+    ${'<div class="esqueleto-tarjeta"></div>'.repeat(3)}
+  </div>`;
 }
 
 function dibujarErrorConexion() {
@@ -67,7 +73,11 @@ function dibujarPanel() {
   const enLista = SECCIONES_LISTA.includes(seccion);
 
   let contenido;
-  if (seccion === 'inicio') contenido = dibujarInicio();
+  // Antes de que llegue la primera respuesta de Firestore, las listas están
+  // vacías y la app decía "todavía no hay nada", que con internet lento se lee
+  // como si el diario se hubiera borrado. Mejor decir que está cargando.
+  if (!estado.datosListos && seccion !== 'ajustes') contenido = dibujarEsqueleto();
+  else if (seccion === 'inicio') contenido = dibujarInicio();
   else if (seccion === 'diario') contenido = vistaDelDiario();
   else if (seccion === 'pregunta') contenido = dibujarPregunta();
   else if (seccion === 'cartas') contenido = dibujarCartas();
@@ -111,9 +121,10 @@ function dibujarPanel() {
   </div>` : '';
 
   let fab = '';
-  if (seccion === 'diario' && estado.vistaDiario === 'lista') fab = '<button class="fab" data-accion="nueva-entrada">+</button>';
+  if (seccion === 'diario' && estado.vistaDiario === 'lista') fab = '<button class="fab" aria-label="Escribir un recuerdo" data-accion="nueva-entrada">+</button>';
   else if (enLista && seccion !== 'gustos' && estado.pestana === 'mia') {
-    fab = `<button class="fab" data-accion="${seccion === 'comida' ? 'nueva-comida' : 'nuevo-deseo'}">+</button>`;
+    fab = `<button class="fab" aria-label="${seccion === 'comida' ? 'Agregar una comida' : 'Agregar un deseo'}"
+                  data-accion="${seccion === 'comida' ? 'nueva-comida' : 'nuevo-deseo'}">+</button>`;
   }
 
   const navegacion = [
@@ -128,6 +139,10 @@ function dibujarPanel() {
       <span class="nav-icon">${item.icono}</span>${item.texto}</button>`;
   }).join('');
 
+  const sinInternet = estado.sinInternet
+    ? `<div class="sin-internet">Sin internet. Lo que escribas se guarda y se sube cuando vuelva.</div>`
+    : '';
+
   return `<div class="screen-dashboard">
     <div class="dash-header">
       <div>
@@ -135,6 +150,7 @@ function dibujarPanel() {
         <div class="dash-sub">${bajadas[seccion] || ''}</div>
       </div>
     </div>
+    ${sinInternet}
     ${pestanasSeccion}
     ${pestanasPersona}
     <div class="dashboard-scroll">${contenido}</div>
@@ -155,7 +171,140 @@ function dibujarHoja() {
   return dibujarHojaDeseo();
 }
 
+// ---------- Redibujar sin pisarle la mano al que está usando la app ----------
+//
+// La pantalla entera se vuelve a escribir en cada cambio: eso mantiene el
+// código simple, pero borraba tres cosas que la persona estaba usando justo en
+// ese momento. Esto las guarda antes de reemplazar el HTML y las devuelve
+// después.
+
+// 1) Los nodos que no se pueden recrear sin cortar lo que hacen: la nota de
+//    voz que suena y el reproductor de Spotify. Se sacan del árbol viejo y se
+//    vuelven a meter en el nuevo, el mismo nodo, sin perder el segundo en que
+//    iban.
+const nodosVivos = new Map();
+
+function apartarNodosVivos() {
+  nodosVivos.clear();
+  raiz.querySelectorAll('[data-persistente]').forEach((nodo) => {
+    nodosVivos.set(nodo.dataset.persistente, nodo);
+    nodo.remove();
+  });
+}
+
+function devolverNodosVivos() {
+  if (!nodosVivos.size) return;
+  raiz.querySelectorAll('[data-persistente]').forEach((hueco) => {
+    const vivo = nodosVivos.get(hueco.dataset.persistente);
+    if (vivo && vivo !== hueco) hueco.replaceWith(vivo);
+  });
+  nodosVivos.clear();
+}
+
+// 2) Dónde estaba el scroll y en qué campo estaba escribiendo.
+//
+// Ojo: para cuando se redibuja, estado.seccion ya es la nueva, así que hay que
+// guardarse a mano en qué pantalla estaba lo que se va a reemplazar. Si no, al
+// cambiar de sección la nueva aparecía con el scroll de la anterior.
+let pantallaDibujada = null;
+
+function dondeEstamos() {
+  return `${estado.pantalla}|${estado.seccion}|${estado.pestana}|${estado.vistaDiario}|${estado.filtroPlan}|${estado.filtroReceta}`;
+}
+
+function senaDelCampo(campo) {
+  if (!campo || !campo.tagName) return null;
+  if (!['INPUT', 'TEXTAREA'].includes(campo.tagName)) return null;
+  if (campo.id) return `#${campo.id}`;
+  const formulario = campo.closest('form');
+  if (formulario && formulario.id && campo.name) return `#${formulario.id} [name="${campo.name}"]`;
+  return campo.name ? `[name="${campo.name}"]` : null;
+}
+
+const CAMPOS_CON_CURSOR = ['text', 'search', 'url', 'tel', 'password', 'textarea'];
+
+function cursorDe(campo) {
+  const tipo = campo.tagName === 'TEXTAREA' ? 'textarea' : campo.type;
+  if (!CAMPOS_CON_CURSOR.includes(tipo)) return { desde: null, hasta: null };
+  return { desde: campo.selectionStart, hasta: campo.selectionEnd };
+}
+
+// El último campo que se estaba usando, con su cursor. Se guarda al salir de
+// él porque en Chrome tocar un botón le quita el foco antes de redibujar.
+let ultimoCampo = null;
+raiz.addEventListener('focusout', (evento) => {
+  const sena = senaDelCampo(evento.target);
+  if (sena) ultimoCampo = { campo: sena, ...cursorDe(evento.target) };
+}, true);
+
+function recordarPantalla() {
+  const lista = raiz.querySelector('.dashboard-scroll');
+  const hoja = raiz.querySelector('.sheet');
+  const activo = document.activeElement;
+  const escribiendo = activo && raiz.contains(activo) ? senaDelCampo(activo) : null;
+  // Si el foco ya se fue a un botón (el ánimo, una etiqueta), se usa el último
+  // campo, pero solo mientras siga abierta la hoja: así el teclado no reaparece
+  // de la nada en una pantalla donde nadie estaba escribiendo.
+  const deAntes = !escribiendo && estado.hoja ? ultimoCampo : null;
+  return {
+    donde: pantallaDibujada,
+    scroll: lista ? lista.scrollTop : 0,
+    scrollHoja: hoja ? hoja.scrollTop : 0,
+    campo: escribiendo || (deAntes && deAntes.campo) || null,
+    ...(escribiendo ? cursorDe(activo) : { desde: deAntes ? deAntes.desde : null, hasta: deAntes ? deAntes.hasta : null }),
+    soloEnLaHoja: Boolean(deAntes),
+  };
+}
+
+function devolverPantalla(memoria) {
+  // Si cambió de sección, el scroll empieza arriba: ahí sí corresponde.
+  if (memoria.scroll && memoria.donde === dondeEstamos()) {
+    const lista = raiz.querySelector('.dashboard-scroll');
+    if (lista) lista.scrollTop = memoria.scroll;
+  }
+  if (memoria.scrollHoja) {
+    const hoja = raiz.querySelector('.sheet');
+    if (hoja) hoja.scrollTop = memoria.scrollHoja;
+  }
+  if (!memoria.campo) return;
+  const campo = raiz.querySelector(memoria.campo);
+  if (!campo || campo === document.activeElement) return;
+  if (memoria.soloEnLaHoja && !campo.closest('.sheet')) return;
+  campo.focus({ preventScroll: true });
+  if (memoria.desde !== null) {
+    try { campo.setSelectionRange(memoria.desde, memoria.hasta); } catch (e) { /* no todos lo aceptan */ }
+  }
+}
+
+// 3) Al abrir una hoja para escribir algo nuevo, el teclado aparece solo:
+//    escribir un recuerdo tiene que costar menos de 30 segundos.
+let hojaAnterior = null;
+
+function senaDeLaHoja() {
+  if (!estado.hoja) return null;
+  return `${estado.hoja.tipo}|${estado.hoja.modo || 'nuevo'}|${(estado.hoja.item && estado.hoja.item.id) || ''}`;
+}
+
+function enfocarHojaNueva() {
+  const sena = senaDeLaHoja();
+  const esNueva = sena && sena !== hojaAnterior;
+  hojaAnterior = sena;
+  if (!esNueva || estado.hoja.modo === 'editar') return;
+  const hoja = raiz.querySelector('.sheet');
+  if (!hoja) return;
+  const primero = hoja.querySelector('textarea, input[type="text"]');
+  if (primero) primero.focus({ preventScroll: true });
+}
+
+let guardando = false;
+let sueltaDelCandado = null;
+
 function dibujar() {
+  guardando = false;
+  clearTimeout(sueltaDelCandado);
+  const memoria = recordarPantalla();
+  apartarNodosVivos();
+
   let html;
   if (estado.pantalla === 'cargando') html = dibujarCargando();
   else if (estado.errorConexion && estado.pantalla !== 'panel') html = dibujarErrorConexion();
@@ -165,25 +314,29 @@ function dibujar() {
   else if (estado.pantalla === 'pin-abrir') html = sesion.dibujarPin('abrir');
   else html = dibujarPanel();
 
-  html += dibujarHoja();
-  html += dibujarConfirmacion();
-  html += dibujarFotoAmpliada();
-  html += dibujarVisor();
-  html += dibujarCartaAbierta();
   if (estado.actualizacion) {
     html += `<div class="aviso-version">
       <span>Hay una versión nueva de Ositos</span>
       <button class="btn btn-primary" data-accion="actualizar-app">Actualizar</button>
     </div>`;
   }
-  html += dibujarAviso();
+  html += dibujarHoja();
+  html += dibujarConfirmacion();
+  html += dibujarFotoAmpliada();
+  html += dibujarVisor();
+  html += dibujarCartaAbierta();
 
   raiz.innerHTML = html;
+  devolverNodosVivos();
   conectarEventos();
   cargarMiniaturas(raiz);
   if (estado.seccion === 'mapa' && estado.pantalla === 'panel') {
     montarMapa(raiz, { alTocarMapa: tocaronElMapa });
   }
+  devolverPantalla(memoria);
+  enfocarHojaNueva();
+  pantallaDibujada = dondeEstamos();
+  sincronizarHistorial();
 }
 
 // ---------- Sesión ----------
@@ -310,6 +463,64 @@ function cerrarHoja() {
   dibujar();
 }
 
+// Tocar fuera de la hoja (o arrastrarla hacia abajo) es fácil de hacer sin
+// querer, y antes se llevaba puesto todo lo escrito sin avisar.
+function cerrarHojaConCuidado() {
+  if (!estado.hoja) return;
+  sincronizarHoja();
+  const item = estado.hoja.item || {};
+  const hayAlgo = ['texto', 'titulo', 'title', 'nota', 'name', 'nombre', 'historia', 'ingredientes', 'pasos']
+    .some((campo) => String(item[campo] || '').trim().length > 2);
+  if (!hayAlgo || estado.hoja.modo === 'editar') { cerrarHoja(); return; }
+  preguntar('¿Cierras sin guardar lo que escribiste?', cerrarHoja, {
+    si: 'Cerrar y descartar',
+    no: 'Seguir escribiendo',
+  });
+}
+
+// ---------- El botón (o el gesto) de "atrás" del celular ----------
+//
+// Antes salía de la app aunque hubiera una hoja abierta, porque la app nunca
+// tocaba el historial. Ahora cada cosa que se abre deja una marca, así que
+// "atrás" cierra lo de encima: primero el visor o la hoja, después la sección,
+// y recién en Inicio sale.
+
+// Se guarda UNA sola marca en el historial mientras haya algo que cerrar, y se
+// vuelve a poner después de cada "atrás". Nunca se saca a mano: history.go()
+// es asíncrono y la cuenta se desincronizaba, lo que terminaba sacando de la
+// app en vez de cerrar la hoja.
+let marcaEnHistorial = false;
+
+function hayAlgoQueCerrar() {
+  if (estado.pantalla !== 'panel') return false;
+  return Boolean(estado.hoja || estado.confirmacion || estado.visor || estado.fotoAmpliada
+    || estado.cartaAbierta || estado.vistaDiario !== 'lista' || estado.seccion !== 'inicio');
+}
+
+function sincronizarHistorial() {
+  if (!marcaEnHistorial && hayAlgoQueCerrar()) {
+    history.pushState({ ositos: true }, '');
+    marcaEnHistorial = true;
+  }
+}
+
+function cerrarUnaCapa() {
+  if (estado.visor) { estado.visor = null; return; }
+  if (estado.fotoAmpliada) { estado.fotoAmpliada = null; return; }
+  if (estado.confirmacion) { estado.confirmacion = null; return; }
+  if (estado.cartaAbierta) { estado.cartaAbierta = null; return; }
+  if (estado.hoja) { estado.hoja = null; return; }
+  if (estado.vistaDiario !== 'lista') { estado.vistaDiario = 'lista'; estado.diaElegido = ''; return; }
+  if (estado.seccion !== 'inicio') { estado.seccion = 'inicio'; }
+}
+
+window.addEventListener('popstate', () => {
+  marcaEnHistorial = false;
+  if (!hayAlgoQueCerrar()) return;  // ya estaba en Inicio: que salga, si quiere
+  cerrarUnaCapa();
+  dibujar();                        // y vuelve a dejar la marca si queda algo
+});
+
 async function abrirHojaEntrada(modo, entrada) {
   const item = entrada ? { ...entrada, etiquetas: [...(entrada.etiquetas || [])] } : entradaVacia();
   abrirHoja('entrada', modo, item, {
@@ -389,8 +600,8 @@ async function elegirFotosEntrada(archivos) {
   }
 }
 
-function preguntar(mensaje, alConfirmar) {
-  estado.confirmacion = { mensaje, alConfirmar };
+function preguntar(mensaje, alConfirmar, opciones = {}) {
+  estado.confirmacion = { mensaje, alConfirmar, ...opciones };
   dibujar();
 }
 
@@ -1219,13 +1430,10 @@ async function cambiarReserva(id) {
   }
 }
 
-function conectarBusqueda(elemento, campo, idCampo) {
+function conectarBusqueda(elemento, campo) {
   elemento.addEventListener('input', () => {
-    const posicion = elemento.selectionStart;
     estado[campo] = elemento.value;
-    dibujar();
-    const nuevo = raiz.querySelector(idCampo);
-    if (nuevo) { nuevo.focus(); nuevo.setSelectionRange(posicion, posicion); }
+    dibujar();  // dibujar() deja el cursor donde estaba
   });
 }
 
@@ -1233,8 +1441,8 @@ function conectarEventos() {
   raiz.querySelectorAll('[data-accion]').forEach((elemento) => {
     const accion = elemento.dataset.accion;
 
-    if (accion === 'buscar') { conectarBusqueda(elemento, 'busqueda', '#campo-busqueda'); return; }
-    if (accion === 'buscar-diario') { conectarBusqueda(elemento, 'busquedaDiario', '#campo-busqueda-diario'); return; }
+    if (accion === 'buscar') { conectarBusqueda(elemento, 'busqueda'); return; }
+    if (accion === 'buscar-diario') { conectarBusqueda(elemento, 'busquedaDiario'); return; }
 
     if (accion === 'archivo-foto') {
       elemento.addEventListener('change', () => elegirFotoDeseo(elemento.files[0]));
@@ -1260,7 +1468,7 @@ function conectarEventos() {
     if (accion === 'hoja-fondo' || accion === 'confirmar-fondo' || accion === 'foto-fondo' || accion === 'visor-fondo') {
       elemento.addEventListener('click', (evento) => {
         if (evento.target !== elemento) return;
-        if (accion === 'hoja-fondo') cerrarHoja();
+        if (accion === 'hoja-fondo') cerrarHojaConCuidado();
         else if (accion === 'confirmar-fondo') { estado.confirmacion = null; dibujar(); }
         else if (accion === 'visor-fondo') { estado.visor = null; dibujar(); }
         else { estado.fotoAmpliada = null; dibujar(); }
@@ -1557,7 +1765,7 @@ function conectarEventos() {
     });
   }
 
-  activarArrastreDeHoja(cerrarHoja);
+  activarArrastreDeHoja(cerrarHojaConCuidado);
 
   if (estado.visor) {
     activarVisor(raiz, {
@@ -1572,6 +1780,25 @@ function conectarEventos() {
     });
   }
 }
+
+// ---------- Un solo guardado por toque ----------
+//
+// Guardar es con await, y en ese rato el botón seguía vivo: dos toques seguidos
+// creaban dos recuerdos iguales. Este guardián va en fase de captura, antes que
+// cualquier formulario, y el candado se suelta en el próximo dibujado (todos
+// los guardados terminan dibujando).
+raiz.addEventListener('submit', (evento) => {
+  if (guardando) { evento.preventDefault(); evento.stopPropagation(); return; }
+  guardando = true;
+  const boton = evento.target.querySelector('button[type="submit"]');
+  if (boton) boton.disabled = true;
+  clearTimeout(sueltaDelCandado);
+  // Si algo falla y no se vuelve a dibujar, el botón no queda muerto.
+  sueltaDelCandado = setTimeout(() => { guardando = false; dibujar(); }, 8000);
+}, true);
+
+window.addEventListener('online', () => { estado.sinInternet = false; dibujar(); });
+window.addEventListener('offline', () => { estado.sinInternet = true; dibujar(); });
 
 aplicarTema();
 dibujar();

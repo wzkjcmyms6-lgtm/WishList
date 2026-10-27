@@ -45,7 +45,7 @@ export function dibujarVisor() {
     : '<div class="boot-spinner"></div>';
 
   return `<div class="visor" data-accion="visor-fondo">
-    <button type="button" class="lightbox-close" data-accion="cerrar-visor">✕</button>
+    <button type="button" class="lightbox-close" aria-label="Cerrar la foto" data-accion="cerrar-visor">✕</button>
     ${contador}
     <div class="visor-lienzo" id="visor-lienzo">${contenido}</div>
     <div class="visor-ayuda">${visor.escala > 1 ? 'Arrastra para moverte · doble toque para alejar' : 'Pellizca para acercar · desliza para cambiar'}</div>

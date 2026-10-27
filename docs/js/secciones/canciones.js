@@ -24,10 +24,11 @@ function tarjeta(cancion) {
         <div class="cancion-titulo">${escapar(cancion.titulo)}</div>
         ${cancion.artista ? `<div class="cancion-artista">${escapar(cancion.artista)}</div>` : ''}
       </div>
-      ${propia ? `<button class="icon-btn danger" data-accion="borrar-cancion" data-id="${cancion.id}">🗑️</button>` : ''}
+      ${propia ? `<button class="icon-btn danger" aria-label="Borrar la canción" data-accion="borrar-cancion" data-id="${cancion.id}">🗑️</button>` : ''}
     </div>
     ${reproductor
       ? `<iframe class="cancion-player" src="${escapar(reproductor)}" height="152" frameborder="0"
+                 title="${escapar(cancion.titulo)} en Spotify" data-persistente="cancion-${cancion.id}"
                  loading="lazy" allow="encrypted-media; clipboard-write; fullscreen; picture-in-picture"></iframe>`
       : (cancion.enlace
           ? `<a class="item-link" href="${escapar(cancion.enlace)}" target="_blank" rel="noopener">Escucharla ↗</a>`

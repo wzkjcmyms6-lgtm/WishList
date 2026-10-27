@@ -168,7 +168,7 @@ export function dibujarPin(modo) {
   const teclas = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'borrar'];
   const teclado = teclas.map((t) => {
     if (t === '') return '<div></div>';
-    if (t === 'borrar') return '<button class="pin-key ghost" data-accion="pin-borrar">⌫</button>';
+    if (t === 'borrar') return '<button class="pin-key ghost" aria-label="Borrar el último número" data-accion="pin-borrar">⌫</button>';
     return `<button class="pin-key" data-accion="pin-digito" data-digito="${t}">${t}</button>`;
   }).join('');
 

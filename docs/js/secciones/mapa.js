@@ -52,7 +52,7 @@ export function dibujarMapa() {
             <span>${escapar(lugar.nombre)}</span>
           </button>
           <span class="lugar-autor">${perfil.emoji}</span>
-          ${propio ? `<button class="icon-btn danger" data-accion="borrar-lugar" data-id="${lugar.id}">🗑️</button>` : ''}
+          ${propio ? `<button class="icon-btn danger" aria-label="Borrar el lugar" data-accion="borrar-lugar" data-id="${lugar.id}">🗑️</button>` : ''}
         </div>`;
       }).join('')
     : '<div class="ajuste-nota">Todavía no hay lugares. Toca el botón y después el punto del mapa.</div>';

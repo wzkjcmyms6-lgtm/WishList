@@ -45,6 +45,8 @@ export const REACCIONES = ['❤️', '🥹', '😂', '🔥', '🤗', '😍'];
 export const estado = {
   pantalla: 'cargando', // cargando | perfiles | clave | pin-crear | pin-abrir | panel | error
   errorConexion: false,
+  datosListos: false,   // false mientras no llegó la primera respuesta de Firestore
+  sinInternet: typeof navigator !== 'undefined' && navigator.onLine === false,
 
   perfilElegido: null,   // en la pantalla de clave
   entrando: false,
@@ -107,7 +109,6 @@ export const estado = {
 
   hoja: null,
   confirmacion: null,
-  aviso: null,
   fotoAmpliada: null,
 };
 

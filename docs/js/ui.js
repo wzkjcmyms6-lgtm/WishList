@@ -21,15 +21,18 @@ export function claseTema(tema) {
   return tema === 'blue' ? 'theme-blue' : 'theme-pink';
 }
 
+// El aviso vive en su propio nodo, fuera de #app. Antes era parte de la
+// pantalla, así que mostrarlo —y esconderlo 2 segundos después— volvía a
+// dibujar todo dos veces: el scroll saltaba al tope y la nota de voz que
+// estaba sonando se cortaba.
+const nodoAvisos = document.getElementById('avisos');
 let temporizadorAviso = null;
-export function avisar(mensaje, volverARenderizar) {
-  estado.aviso = mensaje;
-  volverARenderizar();
+
+export function avisar(mensaje) {
+  if (!nodoAvisos) return;
+  nodoAvisos.innerHTML = `<div class="toast">${escapar(mensaje)}</div>`;
   clearTimeout(temporizadorAviso);
-  temporizadorAviso = setTimeout(() => {
-    estado.aviso = null;
-    volverARenderizar();
-  }, 2200);
+  temporizadorAviso = setTimeout(() => { nodoAvisos.innerHTML = ''; }, 2600);
 }
 
 // Achica la foto en el celular antes de guardarla: Firestore acepta 1 MiB por
@@ -81,17 +84,15 @@ export async function comprimirFotoSimple(archivo) {
   return aMedida(imagen, 800, 0.62).datos;
 }
 
-export function dibujarAviso() {
-  return estado.aviso ? `<div class="toast">${escapar(estado.aviso)}</div>` : '';
-}
-
 export function dibujarConfirmacion() {
   if (!estado.confirmacion) return '';
+  const { mensaje, si, no, suave } = estado.confirmacion;
   return `<div class="confirm-overlay" data-accion="confirmar-fondo"><div class="confirm-box">
-    <div class="confirm-message">${escapar(estado.confirmacion.mensaje)}</div>
+    <div class="confirm-message">${escapar(mensaje)}</div>
     <div class="sheet-actions">
-      <button type="button" class="btn btn-secondary" data-accion="confirmar-no">Cancelar</button>
-      <button type="button" class="btn btn-danger-solid" data-accion="confirmar-si">Eliminar</button>
+      <button type="button" class="btn btn-secondary" data-accion="confirmar-no">${escapar(no || 'Cancelar')}</button>
+      <button type="button" class="btn ${suave ? 'btn-primary' : 'btn-danger-solid'}"
+              data-accion="confirmar-si">${escapar(si || 'Eliminar')}</button>
     </div>
   </div></div>`;
 }
@@ -102,7 +103,7 @@ export function dibujarFotoAmpliada() {
     ? '<div class="boot-spinner"></div>'
     : `<img class="lightbox-img" src="${escapar(estado.fotoAmpliada)}" alt="" />`;
   return `<div class="lightbox-overlay" data-accion="foto-fondo">
-    <button type="button" class="lightbox-close" data-accion="foto-cerrar">✕</button>
+    <button type="button" class="lightbox-close" aria-label="Cerrar la foto" data-accion="foto-cerrar">✕</button>
     ${cuerpo}
   </div>`;
 }
