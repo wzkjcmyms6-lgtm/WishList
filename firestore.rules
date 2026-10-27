@@ -83,6 +83,16 @@ service cloud.firestore {
       allow update, delete: if somosNosotros() && soyElAutor();
     }
 
+    // ---------- Notas de voz ----------
+    // Cada una en su propio documento: son lo más pesado que guardamos y
+    // Firestore no deja pasar de 1 MiB por documento.
+
+    match /voice_notes/{noteId} {
+      allow read:           if somosNosotros();
+      allow create:         if somosNosotros() && loCreoComoMio();
+      allow update, delete: if somosNosotros() && soyElAutor();
+    }
+
     // ---------- Pregunta del día ----------
     // Un documento por persona y día, con id "AAAA-MM-DD_perfil".
     // La respuesta del otro recién se puede leer cuando ya existe la tuya: esto

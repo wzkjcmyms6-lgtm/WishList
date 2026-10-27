@@ -86,6 +86,7 @@ export const estado = {
   misReservas: [],
   resumen: null,
   respaldo: null,
+  audiosSonando: {},
   actualizacion: null,
   agregandoLugar: false,
   mapaRoto: false,

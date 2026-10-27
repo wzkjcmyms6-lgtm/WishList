@@ -4,6 +4,7 @@ import { estado, PERFILES, ETIQUETAS, ANIMOS, REACCIONES, nombreDe } from '../es
 import { escapar, claseTema } from '../ui.js';
 import { comoTitulo, enPalabras, hoy, nombreDelMes } from '../fechas.js';
 import { traerMiniatura } from '../datos.js';
+import { enMinutos, MAXIMO_SEGUNDOS, sePuedeGrabar } from '../grabador.js';
 
 export function entradasVisibles() {
   const busqueda = estado.busquedaDiario.trim().toLowerCase();
@@ -32,6 +33,21 @@ function dibujarFotos(entrada) {
       <span class="foto-cargando"></span>
     </button>`).join('');
   return `<div class="entrada-fotos ${clase}">${celdas}</div>`;
+}
+
+function dibujarAudios(entrada) {
+  const audios = entrada.audios || [];
+  if (!audios.length) return '';
+  const piezas = audios.map((id) => {
+    const cargado = estado.audiosSonando[id];
+    if (cargado) {
+      return `<audio class="audio-nota" controls autoplay src="${cargado.audio}"></audio>`;
+    }
+    return `<button type="button" class="audio-boton" data-accion="oir-audio" data-audio="${id}">
+      ▶️ <span>Nota de voz</span>
+    </button>`;
+  }).join('');
+  return `<div class="audios">${piezas}</div>`;
 }
 
 function dibujarReacciones(entrada) {
@@ -76,6 +92,7 @@ function tarjetaEntrada(entrada, esBorrador) {
     </div>
     ${entrada.texto ? `<div class="entrada-texto">${escapar(entrada.texto)}</div>` : ''}
     ${dibujarFotos(entrada)}
+    ${dibujarAudios(entrada)}
     ${entrada.lugar ? `<div class="entrada-lugar">📍 ${escapar(entrada.lugar)}</div>` : ''}
     ${etiquetas ? `<div class="entrada-etiquetas">${etiquetas}</div>` : ''}
     ${esBorrador ? '' : dibujarReacciones(entrada)}
@@ -264,6 +281,39 @@ export async function cargarMiniaturas(raiz) {
   }
 }
 
+function dibujarGrabador() {
+  if (!sePuedeGrabar()) return '';
+  const { audios = [], grabando } = estado.hoja;
+
+  const guardadas = audios.map((nota, i) => `
+    <div class="audio-elegido">
+      <span class="audio-duracion">🎙️ ${enMinutos(nota.segundos || 0)}</span>
+      ${nota.audio ? `<audio class="audio-nota" controls src="${nota.audio}"></audio>` : '<span class="ajuste-nota">Guardada</span>'}
+      <button type="button" class="foto-quitar quieta" data-accion="quitar-audio" data-indice="${i}">✕</button>
+    </div>`).join('');
+
+  if (grabando) {
+    return `<div class="field">
+      <label>Nota de voz</label>
+      <div class="grabando">
+        <span class="punto-rojo"></span>
+        <span class="grabando-tiempo">${enMinutos(grabando.segundos || 0)}</span>
+        <span class="ajuste-nota">se corta al minuto</span>
+        <button type="button" class="btn btn-primary" data-accion="parar-grabacion">Listo</button>
+        <button type="button" class="btn btn-danger-text" data-accion="cancelar-grabacion">✕</button>
+      </div>
+    </div>`;
+  }
+
+  return `<div class="field">
+    <label>Nota de voz (opcional, hasta ${MAXIMO_SEGUNDOS} s)</label>
+    ${guardadas}
+    ${audios.length < 3
+      ? '<button type="button" class="upload-btn" data-accion="grabar">🎙️ Grabar una nota de voz</button>'
+      : '<div class="ajuste-nota">Ya son tres notas, el máximo por recuerdo.</div>'}
+  </div>`;
+}
+
 // ---------- Hoja de escribir ----------
 
 export function dibujarHojaEntrada() {
@@ -307,6 +357,8 @@ export function dibujarHojaEntrada() {
           <input type="file" accept="image/*" multiple data-accion="archivo-entrada" ${subiendo ? 'disabled' : ''} hidden />
         </label>` : '<div class="ajuste-nota">Ya son 6 fotos, el máximo por recuerdo.</div>'}
       </div>
+
+      ${dibujarGrabador()}
 
       <div class="field">
         <label>¿Qué día fue?</label>

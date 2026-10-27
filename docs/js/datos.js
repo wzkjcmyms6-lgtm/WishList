@@ -23,6 +23,7 @@ const lugaresCol = collection(db, 'places');
 const planesCol = collection(db, 'plans');
 const cancionesCol = collection(db, 'songs');
 const reservasCol = collection(db, 'reservations');
+const audiosCol = collection(db, 'voice_notes');
 const ajustesDoc = doc(db, 'settings', 'couple');
 
 let cortarEscuchas = [];
@@ -133,29 +134,81 @@ export function dejarDeEscuchar() {
 
 // ---------- Diario ----------
 
-export async function crearEntrada(contenido, fotos) {
+// ---------- Notas de voz ----------
+// Cada una en su propio documento, que es lo más pesado que guardamos.
+
+async function guardarAudios(idEntrada, audios) {
+  const ids = [];
+  let bytes = 0;
+  for (const nota of audios) {
+    bytes += nota.bytes || 0;
+    const referencia = await addDoc(audiosCol, {
+      autor: estado.sesion,
+      entryId: idEntrada,
+      segundos: nota.segundos,
+      bytes: nota.bytes || 0,
+      audio: nota.audio,
+      createdAt: Date.now(),
+    });
+    ids.push(referencia.id);
+  }
+  if (ids.length) await contarFotos(0, bytes);
+  return ids;
+}
+
+export async function borrarAudios(ids) {
+  for (const id of ids || []) {
+    try {
+      const instantanea = await getDoc(doc(audiosCol, id));
+      const bytes = instantanea.exists() ? (instantanea.data().bytes || 0) : 0;
+      await deleteDoc(doc(audiosCol, id));
+      await contarFotos(0, -bytes);
+    } catch (e) {
+      // Si ya no estaba, no hay nada que hacer.
+    }
+  }
+}
+
+const audiosEnMemoria = new Map();
+
+export async function traerAudio(id) {
+  if (audiosEnMemoria.has(id)) return audiosEnMemoria.get(id);
+  const instantanea = await getDoc(doc(audiosCol, id));
+  const valor = instantanea.exists() ? instantanea.data() : null;
+  audiosEnMemoria.set(id, valor);
+  return valor;
+}
+
+export async function crearEntrada(contenido, fotos, audios) {
   const referencia = await addDoc(entradasCol, {
     ...contenido,
     autor: estado.sesion,
     fotos: [],
+    audios: [],
     reactions: {},
     createdAt: Date.now(),
     updatedAt: Date.now(),
   });
-  if (fotos && fotos.length) {
-    const ids = await guardarFotos(referencia.id, fotos);
-    await updateDoc(doc(entradasCol, referencia.id), { fotos: ids });
-  }
+  const cambios = {};
+  if (fotos && fotos.length) cambios.fotos = await guardarFotos(referencia.id, fotos);
+  if (audios && audios.length) cambios.audios = await guardarAudios(referencia.id, audios);
+  if (Object.keys(cambios).length) await updateDoc(doc(entradasCol, referencia.id), cambios);
   return referencia.id;
 }
 
-export async function editarEntrada(id, contenido, fotos) {
+export async function editarEntrada(id, contenido, fotos, audios) {
   const cambios = { ...contenido, updatedAt: Date.now() };
   if (fotos) {
     const existentes = fotos.filter((f) => f.id).map((f) => f.id);
     const nuevas = fotos.filter((f) => !f.id);
     const ids = nuevas.length ? await guardarFotos(id, nuevas) : [];
     cambios.fotos = [...existentes, ...ids];
+  }
+  if (audios) {
+    const existentes = audios.filter((a) => a.id).map((a) => a.id);
+    const nuevas = audios.filter((a) => !a.id);
+    const ids = nuevas.length ? await guardarAudios(id, nuevas) : [];
+    cambios.audios = [...existentes, ...ids];
   }
   await updateDoc(doc(entradasCol, id), cambios);
 }
@@ -164,6 +217,7 @@ export async function borrarEntrada(entrada) {
   for (const idFoto of entrada.fotos || []) {
     await borrarFoto(idFoto);
   }
+  await borrarAudios(entrada.audios || []);
   await deleteDoc(doc(entradasCol, entrada.id));
 }
 

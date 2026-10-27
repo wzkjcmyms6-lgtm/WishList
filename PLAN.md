@@ -159,8 +159,8 @@ lo niega. No es la pantalla la que lo esconde.
 | ✅ | Botón "Descargar respaldo" (.zip con el diario, los datos y las fotos) |
 | ✅ | Modo oscuro (claro, oscuro o el del celular; se elige en cada aparato) |
 | ✅ | Planes marcados como "juntos" o "a distancia", con ideas para cuando están lejos |
-| ⬜ | Notas de voz cortas |
-| ⬜ | Notificaciones: explicar las opciones gratis y esperar decisión |
+| ✅ | Notas de voz de hasta 60 s, cada una en su propio documento |
+| 🟡 | Notificaciones: explicadas las tres opciones gratis, esperando decisión de Juan |
 
 
 - Funcionar sin internet: service worker con versión y aviso de "hay una versión

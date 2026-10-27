@@ -12,6 +12,7 @@ import {
 import { hoy, esFechaValida } from './fechas.js';
 import { aplicarTema, guardarTema } from './tema.js';
 import { armarRespaldo } from './secciones/respaldo.js';
+import { empezarAGrabar } from './grabador.js';
 import * as sesion from './auth.js';
 import * as datos from './datos.js';
 import { dibujarInicio } from './secciones/inicio.js';
@@ -307,7 +308,13 @@ function cerrarHoja() {
 
 async function abrirHojaEntrada(modo, entrada) {
   const item = entrada ? { ...entrada, etiquetas: [...(entrada.etiquetas || [])] } : entradaVacia();
-  abrirHoja('entrada', modo, item, { fotos: (entrada?.fotos || []).map((id) => ({ id, mini: null })), fotosQuitadas: [] });
+  abrirHoja('entrada', modo, item, {
+    fotos: (entrada?.fotos || []).map((id) => ({ id, mini: null })),
+    fotosQuitadas: [],
+    audios: (entrada?.audios || []).map((id) => ({ id, segundos: 0 })),
+    audiosQuitados: [],
+    grabando: null,
+  });
   // Las miniaturas de las fotos que ya tenía se piden después, sin trabar la hoja.
   if (estado.hoja.fotos.length) {
     for (const foto of estado.hoja.fotos) {
@@ -387,14 +394,16 @@ async function guardarEntrada() {
   const contenido = leerEntradaDelFormulario();
   if (!contenido.texto) { avisarYRedibujar('Escribe algo, aunque sea una línea'); return; }
 
-  const { modo, item, fotos, fotosQuitadas } = estado.hoja;
+  const { modo, item, fotos, fotosQuitadas, audios, audiosQuitados } = estado.hoja;
   try {
     if (modo === 'editar') {
-      await datos.editarEntrada(item.id, contenido, fotos);
+      await datos.editarEntrada(item.id, contenido, fotos, audios);
       if (fotosQuitadas.length) await datos.borrarFotos(fotosQuitadas);
+      if (audiosQuitados.length) await datos.borrarAudios(audiosQuitados);
     } else {
       const nuevas = fotos.filter((f) => !f.id);
-      await datos.crearEntrada(contenido, nuevas);
+      const nuevosAudios = audios.filter((a) => !a.id);
+      await datos.crearEntrada(contenido, nuevas, nuevosAudios);
       if (modo === 'borrador') await datos.borrarBorrador(item.id);
     }
     estado.hoja = null;
@@ -650,6 +659,31 @@ const acciones = {
       ? actuales.filter((c) => c !== clave)
       : [...actuales, clave];
     dibujar();
+  },
+  'grabar': () => grabar(),
+  'parar-grabacion': () => pararGrabacion(),
+  'cancelar-grabacion': () => {
+    if (grabacionEnCurso) grabacionEnCurso.cancelar();
+    grabacionEnCurso = null;
+    if (estado.hoja) estado.hoja.grabando = null;
+    dibujar();
+  },
+  'quitar-audio': (elemento) => {
+    sincronizarHoja();
+    const indice = Number(elemento.dataset.indice);
+    const [quitada] = estado.hoja.audios.splice(indice, 1);
+    if (quitada && quitada.id) estado.hoja.audiosQuitados.push(quitada.id);
+    dibujar();
+  },
+  'oir-audio': async (elemento) => {
+    const id = elemento.dataset.audio;
+    try {
+      const nota = await datos.traerAudio(id);
+      if (nota) estado.audiosSonando[id] = nota;
+      dibujar();
+    } catch (e) {
+      avisarYRedibujar('No se pudo cargar la nota de voz');
+    }
   },
   'quitar-foto-entrada': (elemento) => {
     sincronizarHoja();
@@ -1005,6 +1039,45 @@ async function marcarPlan(id) {
       dibujar();
     });
   });
+}
+
+let grabacionEnCurso = null;
+
+async function grabar() {
+  sincronizarHoja();
+  try {
+    estado.hoja.grabando = { segundos: 0 };
+    dibujar();
+    grabacionEnCurso = await empezarAGrabar({
+      alContar: (segundos) => {
+        if (!estado.hoja || !estado.hoja.grabando) return;
+        const tiempo = raiz.querySelector('.grabando-tiempo');
+        estado.hoja.grabando.segundos = segundos;
+        // Solo el reloj, para no redibujar la hoja entera cada cuarto de segundo.
+        if (tiempo) tiempo.textContent = `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`;
+      },
+      alCortarse: () => pararGrabacion(),
+    });
+  } catch (e) {
+    estado.hoja.grabando = null;
+    grabacionEnCurso = null;
+    avisarYRedibujar('No se pudo usar el micrófono. Revisa los permisos.');
+  }
+}
+
+async function pararGrabacion() {
+  if (!grabacionEnCurso) return;
+  const grabacion = grabacionEnCurso;
+  grabacionEnCurso = null;
+  const resultado = await grabacion.detener();
+  if (!estado.hoja) return;
+  estado.hoja.grabando = null;
+  if (resultado.error) {
+    avisarYRedibujar(resultado.error);
+    return;
+  }
+  estado.hoja.audios.push(resultado);
+  dibujar();
 }
 
 function tocaronElMapa(lat, lng) {
