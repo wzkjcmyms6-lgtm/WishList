@@ -231,6 +231,22 @@ quedaba fuera de la pantalla.
 Esto no se pudo reproducir acá: el entorno solo tiene Chromium, donde la hoja
 siempre se deslizó bien. Hay que probarlo en el iPhone.
 
+**Corregido después, con una captura de Manuelito:** de noche, lo que se
+escribía en los campos era casi invisible.
+
+Los campos (contraseña, fecha de inicio, nombre de una fecha especial, texto
+del recuerdo, respuesta de la pregunta, comentario, subir foto) tenían el fondo
+blanco escrito a mano mientras la letra usaba el color del tema. De día eso
+funcionaba de casualidad; de noche quedaba letra clara sobre blanco: contraste
+1.15, cuando el mínimo legible es 4.5. Ahora todos usan `var(--card)`, que es
+blanco de día y gris oscuro de noche. También se declara `color-scheme`, así el
+selector de fecha y el cursor del iPhone se pintan oscuros.
+
+**Por qué no lo había agarrado la auditoría:** medía el contraste del texto de
+cada elemento, y un campo no tiene texto — tiene valor. Ahora mide el valor (o
+el marcador de posición) y revisa de noche también las pantallas donde se
+escribe. Comprobado volviendo a meter el error a propósito: lo marca.
+
 **Queda anotado, no es una falla:** "Comida" (lo que les gusta comer) y
 "Recetas" (lo que quieren cocinar) se parecen de nombre. Si alguna vez
 confunden, conviene renombrar una de las dos.
