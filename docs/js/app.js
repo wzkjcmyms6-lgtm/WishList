@@ -24,6 +24,7 @@ import { dibujarCartas, dibujarCartaAbierta, dibujarHojaCarta } from './seccione
 import { dibujarMapa, dibujarHojaLugar, montarMapa, centrarEn } from './secciones/mapa.js';
 import { dibujarPlanes, dibujarHojaPlan, IDEAS_A_DISTANCIA } from './secciones/planes.js';
 import { dibujarCanciones, dibujarHojaCancion } from './secciones/canciones.js';
+import { dibujarRecetas, dibujarHojaReceta, IDEAS_DE_RECETAS } from './secciones/recetas.js';
 import { dibujarResumen, calcularResumen } from './secciones/resumen.js';
 import { activarVisor } from './visor.js';
 import { dibujarPregunta, preguntaDeHoy } from './secciones/pregunta.js';
@@ -73,6 +74,7 @@ function dibujarPanel() {
   else if (seccion === 'mapa') contenido = dibujarMapa();
   else if (seccion === 'planes') contenido = dibujarPlanes();
   else if (seccion === 'canciones') contenido = dibujarCanciones();
+  else if (seccion === 'recetas') contenido = dibujarRecetas();
   else if (seccion === 'resumen') contenido = dibujarResumen();
   else if (seccion === 'ajustes') contenido = dibujarAjustes();
   else if (seccion === 'gustos') contenido = dibujarGustos();
@@ -87,6 +89,7 @@ function dibujarPanel() {
     mapa: 'Nuestros lugares',
     planes: 'Cosas por hacer juntos',
     canciones: 'La banda sonora',
+    recetas: 'Lo que queremos cocinar',
     resumen: 'Nuestro año',
     ajustes: 'Tu cuenta y este celular',
     gustos: `Lo que le gusta a ${escapar(nombrePareja)}`,
@@ -146,6 +149,7 @@ function dibujarHoja() {
   if (estado.hoja.tipo === 'lugar') return dibujarHojaLugar();
   if (estado.hoja.tipo === 'plan') return dibujarHojaPlan();
   if (estado.hoja.tipo === 'cancion') return dibujarHojaCancion();
+  if (estado.hoja.tipo === 'receta') return dibujarHojaReceta();
   if (estado.hoja.tipo === 'entrada') return dibujarHojaEntrada();
   if (estado.hoja.tipo === 'comida') return dibujarHojaComida();
   return dibujarHojaDeseo();
@@ -344,6 +348,21 @@ async function elegirFotoDeseo(archivo) {
   dibujar();
   try {
     estado.hoja.item.image = await comprimirFotoSimple(archivo);
+  } catch (e) {
+    avisarYRedibujar(e.message || 'No se pudo procesar la imagen');
+  } finally {
+    estado.hoja.subiendo = false;
+    dibujar();
+  }
+}
+
+async function elegirFotoReceta(archivo) {
+  if (!archivo) return;
+  sincronizarHoja();
+  estado.hoja.subiendo = true;
+  dibujar();
+  try {
+    estado.hoja.item.foto = await comprimirFotoSimple(archivo);
   } catch (e) {
     avisarYRedibujar(e.message || 'No se pudo procesar la imagen');
   } finally {
@@ -754,6 +773,48 @@ const acciones = {
   'ir-mapa': () => { estado.seccion = 'mapa'; estado.agregandoLugar = false; dibujar(); },
   'ir-planes': () => { estado.seccion = 'planes'; dibujar(); },
   'ir-canciones': () => { estado.seccion = 'canciones'; dibujar(); },
+  'ir-recetas': () => { estado.seccion = 'recetas'; dibujar(); },
+
+  'nueva-receta': () => abrirHoja('receta', 'nuevo', {
+    titulo: '', ingredientes: '', pasos: '', enlace: '', foto: '', aDistancia: false,
+  }),
+  'editar-receta': (elemento) => {
+    const receta = estado.recetas.find((r) => r.id === elemento.dataset.id);
+    if (receta) abrirHoja('receta', 'editar', receta);
+  },
+  'borrar-receta': (elemento) => {
+    const id = elemento.dataset.id;
+    preguntar('¿Borrar esta receta?', async () => {
+      try {
+        await datos.borrarReceta(id);
+        estado.hoja = null;
+        avisarYRedibujar('Receta borrada');
+      } catch (e) {
+        avisarYRedibujar('No se pudo borrar');
+      }
+    });
+  },
+  'marcar-receta': (elemento) => marcarReceta(elemento.dataset.id),
+  'filtro-receta': (elemento) => { estado.filtroReceta = elemento.dataset.valor; dibujar(); },
+  'quitar-foto-receta': () => {
+    sincronizarHoja();
+    estado.hoja.item.foto = '';
+    dibujar();
+  },
+  'ver-foto-receta': (elemento) => {
+    const receta = estado.recetas.find((r) => r.id === elemento.dataset.id);
+    if (receta && receta.foto) { estado.fotoAmpliada = receta.foto; dibujar(); }
+  },
+  'usar-receta': async (elemento) => {
+    const idea = IDEAS_DE_RECETAS[Number(elemento.dataset.indice)];
+    if (!idea) return;
+    try {
+      await datos.crearReceta({ titulo: idea, ingredientes: '', pasos: '', enlace: '', foto: '', aDistancia: true });
+      avisarYRedibujar('Agregada a las recetas 🍳');
+    } catch (e) {
+      avisarYRedibujar('No se pudo agregar');
+    }
+  },
   'ir-resumen': () => {
     estado.seccion = 'resumen';
     estado.resumen = null;
@@ -1041,6 +1102,28 @@ async function marcarPlan(id) {
   });
 }
 
+// Igual que con los planes: lo cocinado merece quedar escrito.
+async function marcarReceta(id) {
+  const receta = estado.recetas.find((r) => r.id === id);
+  if (!receta) return;
+  const seHizo = !receta.hecha;
+  try {
+    await datos.marcarReceta(id, seHizo);
+  } catch (e) {
+    avisarYRedibujar('No se pudo marcar');
+    return;
+  }
+  if (!seHizo) { dibujar(); return; }
+  preguntar(`¡La cocinaron! ¿Escribes el recuerdo de "${receta.titulo}"?`, () => {
+    abrirHojaEntrada('nuevo', null).then(() => {
+      if (!estado.hoja) return;
+      estado.hoja.item.texto = `Cocinamos ${receta.titulo}.`;
+      estado.hoja.item.etiquetas = ['comida'];
+      dibujar();
+    });
+  });
+}
+
 let grabacionEnCurso = null;
 
 async function grabar() {
@@ -1157,6 +1240,11 @@ function conectarEventos() {
       elemento.addEventListener('change', () => elegirFotoDeseo(elemento.files[0]));
       return;
     }
+    if (accion === 'archivo-receta') {
+      elemento.addEventListener('change', () => elegirFotoReceta(elemento.files[0]));
+      return;
+    }
+
     if (accion === 'archivo-entrada') {
       elemento.addEventListener('change', () => elegirFotosEntrada(elemento.files));
       return;
@@ -1365,6 +1453,32 @@ function conectarEventos() {
         });
         estado.hoja = null;
         avisarYRedibujar('Plan agregado ✨');
+      } catch (e) {
+        avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
+      }
+    });
+  }
+
+  const formReceta = raiz.querySelector('#form-receta');
+  if (formReceta) {
+    formReceta.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      const campos = new FormData(formReceta);
+      const titulo = String(campos.get('titulo') || '').trim().slice(0, 120);
+      if (!titulo) { avisarYRedibujar('Ponle nombre a la receta'); return; }
+      const contenido = {
+        titulo,
+        ingredientes: String(campos.get('ingredientes') || '').trim().slice(0, 2000),
+        pasos: String(campos.get('pasos') || '').trim().slice(0, 4000),
+        enlace: String(campos.get('enlace') || '').trim().slice(0, 500),
+        aDistancia: campos.get('aDistancia') === 'on',
+        foto: estado.hoja.item.foto || '',
+      };
+      try {
+        if (estado.hoja.modo === 'editar') await datos.editarReceta(estado.hoja.item.id, contenido);
+        else await datos.crearReceta(contenido);
+        estado.hoja = null;
+        avisarYRedibujar('Receta guardada 🍳');
       } catch (e) {
         avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
       }

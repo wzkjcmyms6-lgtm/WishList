@@ -439,6 +439,24 @@ input:focus, textarea:focus { outline: 2px solid var(--pink-deep); outline-offse
   }
 }
 
+/* ---------- Recetas ---------- */
+.recetas { padding: 0 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+.receta { background: var(--card); border-radius: var(--radius-md); overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+.receta.hecha { background: var(--chip-bg); box-shadow: none; }
+.receta.hecha .receta-titulo { text-decoration: line-through; color: var(--muted); }
+.receta-foto { display: block; width: 100%; padding: 0; height: 150px; background: var(--chip-bg); }
+.receta-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.receta-cuerpo { padding: 14px 16px 16px; }
+.receta-cabecera { display: flex; align-items: flex-start; gap: 10px; }
+.receta-datos { flex: 1; min-width: 0; }
+.receta-titulo { font-family: var(--font-heading); font-weight: 700; font-size: 15.5px; word-break: break-word; }
+.receta-detalle { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+.receta-detalle summary { font-size: 13.5px; font-weight: 700; color: var(--muted); cursor: pointer; padding: 6px 0; min-height: 36px; display: flex; align-items: center; }
+.receta-texto { font-size: 14.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; padding: 4px 0 8px; }
+.receta-check { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; font-size: 14px; line-height: 1.4; cursor: pointer; min-height: 44px; }
+.receta-check input { width: 22px; height: 22px; flex-shrink: 0; accent-color: var(--pink-deep); margin: 0; }
+.atajo.ancho { grid-column: 1 / -1; }
+
 /* ---------- Notas de voz ---------- */
 .audios { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .audio-boton { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border-radius: 999px; background: var(--cream); font-size: 14px; font-weight: 600; color: var(--ink); min-height: 46px; }

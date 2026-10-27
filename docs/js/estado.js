@@ -83,6 +83,8 @@ export const estado = {
   planes: [],
   filtroPlan: 'todos',
   canciones: [],
+  recetas: [],
+  filtroReceta: 'pendientes',
   misReservas: [],
   resumen: null,
   respaldo: null,

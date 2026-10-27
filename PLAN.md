@@ -130,6 +130,13 @@ lo niega. No es la pantalla la que lo esconde.
 
 ---
 
+## Recetas ✅
+
+Lo que queremos cocinar, con ingredientes, pasos, link y foto. Cada receta
+puede marcarse como "se puede cocinar en videollamada", porque pasan buena
+parte del tiempo a distancia y esas son las que sirven igual estando lejos. Al
+marcarla como cocinada ofrece escribir el recuerdo, igual que los planes.
+
 ## Fase 3 — Planes y juego ✅
 
 | | Tarea |

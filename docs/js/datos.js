@@ -22,6 +22,7 @@ const cartasTextoCol = collection(db, 'letter_bodies');
 const lugaresCol = collection(db, 'places');
 const planesCol = collection(db, 'plans');
 const cancionesCol = collection(db, 'songs');
+const recetasCol = collection(db, 'recipes');
 const reservasCol = collection(db, 'reservations');
 const audiosCol = collection(db, 'voice_notes');
 const ajustesDoc = doc(db, 'settings', 'couple');
@@ -84,6 +85,11 @@ export function escucharDatos(alCambiar) {
     alCambiar();
   });
 
+  escuchar(recetasCol, (snap) => {
+    estado.recetas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    alCambiar();
+  });
+
   escuchar(cancionesCol, (snap) => {
     estado.canciones = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     alCambiar();
@@ -125,6 +131,7 @@ export function dejarDeEscuchar() {
   estado.lugares = [];
   estado.planes = [];
   estado.canciones = [];
+  estado.recetas = [];
   estado.misReservas = [];
   estado.deseos = [];
   estado.comidas = [];
@@ -514,6 +521,35 @@ export function marcarPlan(id, hecho) {
 
 export function borrarPlan(id) {
   return deleteDoc(doc(planesCol, id));
+}
+
+// ---------- Recetas ----------
+
+export function crearReceta(datos) {
+  return addDoc(recetasCol, {
+    ...datos,
+    autor: estado.sesion,
+    hecha: false,
+    hechaEn: null,
+    hechaPor: null,
+    createdAt: Date.now(),
+  });
+}
+
+export function editarReceta(id, datos) {
+  return updateDoc(doc(recetasCol, id), datos);
+}
+
+export function marcarReceta(id, hecha) {
+  return updateDoc(doc(recetasCol, id), {
+    hecha,
+    hechaEn: hecha ? Date.now() : null,
+    hechaPor: hecha ? estado.sesion : null,
+  });
+}
+
+export function borrarReceta(id) {
+  return deleteDoc(doc(recetasCol, id));
 }
 
 // ---------- Canciones ----------

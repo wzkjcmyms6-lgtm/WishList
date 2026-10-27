@@ -7,7 +7,7 @@
 // actualizarse a escondidas: Safari guarda caché con ganas y si no se avisa
 // alguien puede quedarse semanas con la versión vieja sin enterarse.
 
-const VERSION = 'ositos-v24';
+const VERSION = 'ositos-v25';
 
 const ARCHIVOS = [
   './',
@@ -36,6 +36,7 @@ const ARCHIVOS = [
   './js/secciones/mapa.js',
   './js/secciones/planes.js',
   './js/secciones/canciones.js',
+  './js/secciones/recetas.js',
   './js/secciones/resumen.js',
   './js/secciones/deseos.js',
   './js/secciones/comida.js',

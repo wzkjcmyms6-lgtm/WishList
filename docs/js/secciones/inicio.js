@@ -182,8 +182,9 @@ export function dibujarInicio() {
     <div class="atajos">
       <button class="atajo" data-accion="ir-planes"><span>✨</span>Planes</button>
       <button class="atajo" data-accion="ir-mapa"><span>🗺️</span>Lugares</button>
+      <button class="atajo" data-accion="ir-recetas"><span>🍳</span>Recetas</button>
       <button class="atajo" data-accion="ir-canciones"><span>🎵</span>Canciones</button>
-      <button class="atajo" data-accion="ir-resumen"><span>📊</span>Nuestro año</button>
+      <button class="atajo ancho" data-accion="ir-resumen"><span>📊</span>Nuestro año</button>
     </div>
     ${bloqueProximaFecha()}
     ${bloqueUnDiaComoHoy()}

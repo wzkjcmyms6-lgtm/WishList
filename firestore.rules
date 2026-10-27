@@ -167,6 +167,16 @@ service cloud.firestore {
       allow delete: if somosNosotros() && soyElAutor();
     }
 
+    // ---------- Recetas por cocinar ----------
+    // Como los planes: cualquiera de los dos puede marcar que ya la hicieron.
+
+    match /recipes/{recipeId} {
+      allow read:   if somosNosotros();
+      allow create: if somosNosotros() && loCreoComoMio();
+      allow update: if somosNosotros() && (soyElAutor() || soloCambia(['hecha', 'hechaEn', 'hechaPor']));
+      allow delete: if somosNosotros() && soyElAutor();
+    }
+
     // ---------- Nuestras canciones ----------
 
     match /songs/{songId} {
