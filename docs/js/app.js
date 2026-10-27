@@ -18,6 +18,7 @@ import {
 } from './secciones/diario.js';
 import { dibujarAlbum, dibujarVisor } from './secciones/album.js';
 import { dibujarCartas, dibujarCartaAbierta, dibujarHojaCarta } from './secciones/cartas.js';
+import { dibujarMapa, dibujarHojaLugar, montarMapa, centrarEn } from './secciones/mapa.js';
 import { activarVisor } from './visor.js';
 import { dibujarPregunta, preguntaDeHoy } from './secciones/pregunta.js';
 import { dibujarDeseos, dibujarHojaDeseo } from './secciones/deseos.js';
@@ -63,6 +64,7 @@ function dibujarPanel() {
   else if (seccion === 'diario') contenido = vistaDelDiario();
   else if (seccion === 'pregunta') contenido = dibujarPregunta();
   else if (seccion === 'cartas') contenido = dibujarCartas();
+  else if (seccion === 'mapa') contenido = dibujarMapa();
   else if (seccion === 'ajustes') contenido = dibujarAjustes();
   else if (seccion === 'gustos') contenido = dibujarGustos();
   else if (seccion === 'comida') contenido = dibujarComidas();
@@ -73,6 +75,7 @@ function dibujarPanel() {
     diario: { lista: 'Nuestros recuerdos', calendario: 'Nuestro calendario', album: 'Todas nuestras fotos' }[estado.vistaDiario],
     pregunta: 'Para conocernos más',
     cartas: 'Para abrir después',
+    mapa: 'Nuestros lugares',
     ajustes: 'Tu cuenta y este celular',
     gustos: `Lo que le gusta a ${escapar(nombrePareja)}`,
     comida: estado.pestana === 'mia' ? 'Tus comidas favoritas' : `Las comidas de ${escapar(nombrePareja)}`,
@@ -128,6 +131,7 @@ function dibujarPanel() {
 function dibujarHoja() {
   if (!estado.hoja) return '';
   if (estado.hoja.tipo === 'carta') return dibujarHojaCarta();
+  if (estado.hoja.tipo === 'lugar') return dibujarHojaLugar();
   if (estado.hoja.tipo === 'entrada') return dibujarHojaEntrada();
   if (estado.hoja.tipo === 'comida') return dibujarHojaComida();
   return dibujarHojaDeseo();
@@ -153,6 +157,9 @@ function dibujar() {
   raiz.innerHTML = html;
   conectarEventos();
   cargarMiniaturas(raiz);
+  if (estado.seccion === 'mapa' && estado.pantalla === 'panel') {
+    montarMapa(raiz, { alTocarMapa: tocaronElMapa });
+  }
 }
 
 // ---------- Sesión ----------
@@ -683,6 +690,21 @@ const acciones = {
   'cerrar-visor': () => { estado.visor = null; dibujar(); },
   'sacar-recuerdo': () => sacarDelFrasco(),
   'ir-cartas': () => { estado.seccion = 'cartas'; dibujar(); },
+  'ir-mapa': () => { estado.seccion = 'mapa'; estado.agregandoLugar = false; dibujar(); },
+  'alternar-agregar-lugar': () => {
+    estado.agregandoLugar = !estado.agregandoLugar;
+    dibujar();
+  },
+  'centrar-lugar': (elemento) => {
+    centrarEn(estado.lugares.find((l) => l.id === elemento.dataset.id));
+  },
+  'borrar-lugar': (elemento) => {
+    const id = elemento.dataset.id;
+    preguntar('¿Borrar este lugar del mapa?', async () => {
+      try { await datos.borrarLugar(id); avisarYRedibujar('Lugar borrado'); }
+      catch (e) { avisarYRedibujar('No se pudo borrar'); }
+    });
+  },
   'volver-inicio': () => { estado.seccion = 'inicio'; dibujar(); },
   'nueva-carta': () => abrirHoja('carta', 'nuevo', {
     titulo: '', texto: '', tipo: 'motivo', motivo: 'cualquiera', abreEn: '',
@@ -851,6 +873,12 @@ function cambiarFotoDelVisor(direccion) {
     return;
   }
   abrirVisor(siguiente);
+}
+
+function tocaronElMapa(lat, lng) {
+  if (!estado.agregandoLugar) return;
+  estado.agregandoLugar = false;
+  abrirHoja('lugar', 'nuevo', { nombre: '', lat, lng });
 }
 
 async function abrirCarta(id) {
@@ -1113,6 +1141,23 @@ function conectarEventos() {
         await datos.crearCarta(sobre, texto);
         estado.hoja = null;
         avisarYRedibujar('Carta guardada 💌');
+      } catch (e) {
+        avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
+      }
+    });
+  }
+
+  const formLugar = raiz.querySelector('#form-lugar');
+  if (formLugar) {
+    formLugar.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      const nombre = String(new FormData(formLugar).get('nombre') || '').trim().slice(0, 80);
+      if (!nombre) { avisarYRedibujar('Ponle un nombre al lugar'); return; }
+      const { lat, lng } = estado.hoja.item;
+      try {
+        await datos.crearLugar({ nombre, lat, lng });
+        estado.hoja = null;
+        avisarYRedibujar('Lugar guardado 📍');
       } catch (e) {
         avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
       }

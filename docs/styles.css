@@ -335,6 +335,19 @@ input:focus, textarea:focus { outline: 2px solid var(--pink-deep); outline-offse
 .frasco-emoji { font-size: 20px; }
 .frasco-abierto .recuerdo-texto { margin: 8px 0 10px; font-size: 14.5px; line-height: 1.5; }
 
+/* ---------- Mapa ---------- */
+.mapa { padding: 0 22px 24px; }
+.mapa .btn.ancho { width: 100%; margin-bottom: 10px; }
+.mapa-lienzo { height: 340px; border-radius: var(--radius-md); overflow: hidden; margin: 12px 0 16px; background: var(--chip-bg); box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+.mapa-interno { width: 100%; height: 100%; }
+.lugares { background: var(--card); border-radius: var(--radius-md); padding: 8px 16px; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+.lugar-fila { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.lugar-fila:last-child { border-bottom: none; }
+.lugar-nombre { flex: 1; display: flex; align-items: center; gap: 10px; text-align: left; font-size: 14.5px; font-weight: 600; min-height: 36px; }
+.lugar-punto { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+.lugar-autor { font-size: 16px; }
+.leaflet-container { font-family: var(--font-body); }
+
 /* ---------- Cartas ---------- */
 .cartas { padding: 0 22px 24px; display: flex; flex-direction: column; gap: 14px; }
 .cartas-grupo { display: flex; flex-direction: column; gap: 12px; }

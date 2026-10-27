@@ -179,6 +179,10 @@ export function dibujarInicio() {
     </button>
     ${bloqueFrasco()}
     ${bloqueCartas()}
+    <button class="frasco" data-accion="ir-mapa">
+      <span class="frasco-emoji">🗺️</span>
+      <span>Nuestros lugares</span>
+    </button>
     ${bloqueProximaFecha()}
     ${bloqueUnDiaComoHoy()}
     ${bloqueUltimas()}

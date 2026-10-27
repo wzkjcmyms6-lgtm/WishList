@@ -105,7 +105,7 @@ documento que devolvería.
 
 ---
 
-## Fase 2 — Recuerdos 🟡
+## Fase 2 — Recuerdos ✅
 
 | | Tarea |
 |---|---|
@@ -113,7 +113,7 @@ documento que devolvería.
 | ✅ | Celebraciones de los hitos (50, 100, 365, 1000…) con confeti discreto |
 | ✅ | Cartas "ábrela cuando…", por fecha o por motivo, con acuse de lectura |
 | ✅ | Frasco de recuerdos |
-| ⬜ | Mapa de nuestros lugares (Leaflet + OpenStreetMap) |
+| ✅ | Mapa de nuestros lugares (Leaflet + OpenStreetMap, con atribución) |
 
 **Cómo se guarda el secreto de las cartas:** el sobre (autor, título y cuándo
 se abre) va en `letters` y se ve siempre; el texto va aparte en `letter_bodies`

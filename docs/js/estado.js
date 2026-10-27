@@ -80,6 +80,8 @@ export const estado = {
   cartas: [],
   cartaAbierta: null,       // { id, texto | null | 'cerrada' }
   lugares: [],
+  agregandoLugar: false,
+  mapaRoto: false,
   editandoRespuesta: false,
   editandoGracias: false,
   cuantasEntradas: 15,
