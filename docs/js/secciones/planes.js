@@ -130,7 +130,7 @@ export function dibujarHojaPlan() {
         <label>Detalles (opcional)</label>
         <textarea name="nota" maxlength="500" placeholder="Dónde, cuándo, con qué...">${escapar(item.nota)}</textarea>
       </div>
-      <div class="sheet-actions">
+      <div class="sheet-actions sheet-actions-fijas">
         <button type="button" class="btn btn-secondary" data-accion="hoja-cancelar">Cancelar</button>
         <button type="submit" class="btn btn-primary">Guardar el plan</button>
       </div>

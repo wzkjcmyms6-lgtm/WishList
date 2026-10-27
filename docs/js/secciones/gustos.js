@@ -17,7 +17,7 @@ export function dibujarGustos() {
     <div class="panel-nota">Solo tú ves esto. Lentina no puede abrirlo ni aunque quiera.</div>
     <form id="form-gustos">
       ${campos}
-      <div class="sheet-actions">
+      <div class="sheet-actions sheet-actions-fijas">
         <button type="submit" class="btn btn-primary">Guardar</button>
       </div>
     </form>

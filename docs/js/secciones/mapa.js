@@ -152,7 +152,7 @@ export function dibujarHojaLugar() {
                placeholder="Ej. El café de la esquina" value="${escapar(item.nombre)}" />
       </div>
       <div class="ajuste-nota">Queda guardado en el punto que tocaste.</div>
-      <div class="sheet-actions">
+      <div class="sheet-actions sheet-actions-fijas">
         <button type="button" class="btn btn-secondary" data-accion="hoja-cancelar">Cancelar</button>
         <button type="submit" class="btn btn-primary">Guardar el lugar</button>
       </div>

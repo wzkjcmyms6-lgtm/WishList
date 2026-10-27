@@ -33,13 +33,17 @@ import { dibujarComidas, dibujarHojaComida } from './secciones/comida.js';
 import { dibujarGustos } from './secciones/gustos.js';
 import { dibujarAjustes } from './secciones/ajustes.js';
 
-// Dentro del visor de fotos el pellizco lo maneja visor.js, así que ahí hay
-// que quitarle el gesto a Safari. Fuera del visor se deja pasar a propósito:
-// si alguien necesita agrandar la letra, tiene que poder hacerlo.
-document.addEventListener('gesturestart', (e) => { if (estado.visor) e.preventDefault(); });
-document.addEventListener('gesturechange', (e) => { if (estado.visor) e.preventDefault(); });
+// El meta viewport no alcanza en iOS Safari: hay que bloquear el pellizco a
+// mano. Se probó dejarlo libre para poder agrandar la letra, pero en el iPhone
+// la página terminaba agrandada y corrida, con la hoja a medio salir de la
+// pantalla y sin manera de volver. El doble toque ya lo bloquea
+// "touch-action: manipulation" en el CSS.
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('gesturechange', (e) => e.preventDefault());
+// Dentro del visor de fotos el pellizco sí sirve: ahí lo maneja visor.js para
+// acercar la foto (y solo la foto, no toda la página).
 document.addEventListener('touchmove', (e) => {
-  if (e.touches.length > 1 && estado.visor) e.preventDefault();
+  if (e.touches.length > 1 && !estado.visor) e.preventDefault();
 }, { passive: false });
 
 const avisarYRedibujar = (mensaje) => { avisar(mensaje); dibujar(); };

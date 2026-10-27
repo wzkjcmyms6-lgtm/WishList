@@ -157,7 +157,7 @@ export function dibujarHojaDeseo() {
       <div class="field"><label>Link de la tienda (opcional)</label>
         <input type="url" name="url" placeholder="https://..." value="${escapar(item.url)}" maxlength="500" /></div>
       ${campoFoto(item, subiendo)}
-      <div class="sheet-actions">
+      <div class="sheet-actions sheet-actions-fijas">
         <button type="button" class="btn btn-secondary" data-accion="hoja-cancelar">Cancelar</button>
         <button type="submit" class="btn btn-primary">Guardar</button>
       </div>

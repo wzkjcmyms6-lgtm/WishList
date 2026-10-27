@@ -110,26 +110,56 @@ export function dibujarFotoAmpliada() {
 
 // La hoja inferior se baja arrastrando el tirador. Solo se cierra si se la
 // arrastra más del 60% de su alto, para no perder lo escrito por un roce.
+// Arrastrar la hoja hacia abajo para cerrarla.
+//
+// Antes solo servía el tirador de arriba (40 px de ancho) y había que bajarlo
+// el 60 % del alto de la hoja, así que en el iPhone parecía que no se podía:
+// la hoja se estiraba un poco y volvía sola. Ahora el gesto empieza en
+// cualquier parte de la hoja, siempre que esté arriba de todo y el movimiento
+// sea claramente hacia abajo (si no, lo que corresponde es deslizarla).
 export function activarArrastreDeHoja(cerrarHoja) {
   const hoja = raiz.querySelector('.sheet');
-  const tirador = raiz.querySelector('.sheet-handle');
-  if (!hoja || !tirador) return;
+  if (!hoja) return;
 
   let inicioY = 0;
+  let inicioX = 0;
   let recorrido = 0;
+  let mirando = false;      // se tocó la hoja, todavía no se sabe qué gesto es
   let arrastrando = false;
 
-  const empezar = (y) => { arrastrando = true; inicioY = y; hoja.style.transition = 'none'; };
-  const mover = (y) => {
-    if (!arrastrando) return;
-    recorrido = Math.max(0, y - inicioY);
-    hoja.style.transform = `translateY(${recorrido}px)`;
+  const esCampo = (destino) => Boolean(
+    destino && destino.closest && destino.closest('input, textarea, select, .sort-chips'));
+
+  const empezar = (x, y, destino) => {
+    if (esCampo(destino)) return;
+    mirando = hoja.scrollTop <= 0;   // si está bajada, primero se sube
+    arrastrando = false;
+    recorrido = 0;
+    inicioY = y;
+    inicioX = x;
   };
+
+  const mover = (x, y) => {
+    if (!mirando) return false;
+    const bajo = y - inicioY;
+    const lado = Math.abs(x - inicioX);
+    if (!arrastrando) {
+      if (bajo > 10 && bajo > lado) { arrastrando = true; hoja.style.transition = 'none'; }
+      else if (bajo < -6 || lado > 10) { mirando = false; return false; }
+      else return false;
+    }
+    recorrido = Math.max(0, bajo);
+    hoja.style.transform = `translateY(${recorrido}px)`;
+    return true;
+  };
+
   const terminar = () => {
+    mirando = false;
     if (!arrastrando) return;
     arrastrando = false;
     hoja.style.transition = 'transform 0.2s ease';
-    if (recorrido > hoja.offsetHeight * 0.6) {
+    // Un cuarto de la hoja, o 150 px: lo que se alcance primero.
+    if (recorrido > Math.min(150, hoja.offsetHeight * 0.25)) {
       hoja.style.transform = 'translateY(100%)';
       setTimeout(cerrarHoja, 180);
     } else {
@@ -137,18 +167,32 @@ export function activarArrastreDeHoja(cerrarHoja) {
     }
   };
 
-  tirador.addEventListener('touchstart', (e) => empezar(e.touches[0].clientY), { passive: true });
-  tirador.addEventListener('touchmove', (e) => mover(e.touches[0].clientY), { passive: true });
-  tirador.addEventListener('touchend', terminar);
-  tirador.addEventListener('mousedown', (e) => {
-    empezar(e.clientY);
-    const alMover = (ev) => mover(ev.clientY);
-    const alSoltar = () => {
-      terminar();
-      document.removeEventListener('mousemove', alMover);
-      document.removeEventListener('mouseup', alSoltar);
-    };
-    document.addEventListener('mousemove', alMover);
-    document.addEventListener('mouseup', alSoltar);
-  });
+  hoja.addEventListener('touchstart', (e) => {
+    empezar(e.touches[0].clientX, e.touches[0].clientY, e.target);
+  }, { passive: true });
+
+  hoja.addEventListener('touchmove', (e) => {
+    // Mientras se arrastra hay que quedarse con el gesto, si no el navegador
+    // lo toma como rebote y la hoja tiembla.
+    if (mover(e.touches[0].clientX, e.touches[0].clientY) && e.cancelable) e.preventDefault();
+  }, { passive: false });
+
+  hoja.addEventListener('touchend', terminar);
+  hoja.addEventListener('touchcancel', terminar);
+
+  const tirador = raiz.querySelector('.sheet-handle');
+  if (tirador) {
+    tirador.addEventListener('mousedown', (e) => {
+      empezar(e.clientX, e.clientY, e.target);
+      mirando = true;
+      const alMover = (ev) => mover(ev.clientX, ev.clientY);
+      const alSoltar = () => {
+        terminar();
+        document.removeEventListener('mousemove', alMover);
+        document.removeEventListener('mouseup', alSoltar);
+      };
+      document.addEventListener('mousemove', alMover);
+      document.addEventListener('mouseup', alSoltar);
+    });
+  }
 }

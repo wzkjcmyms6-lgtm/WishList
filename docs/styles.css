@@ -613,7 +613,13 @@ button:focus-visible, a:focus-visible, summary:focus-visible,
 .sort-chip.active { background: var(--ink); color: var(--cream); }
 
 .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: flex-end; justify-content: center; z-index: 50; animation: overlayIn 0.2s ease both; }
-.sheet { width: 100%; max-width: 460px; background: var(--cream); border-radius: 28px 28px 0 0; padding: 20px 22px calc(24px + env(safe-area-inset-bottom)); max-height: 88vh; max-height: 88dvh; overflow-y: auto; animation: sheetIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.sheet { width: 100%; max-width: 460px; background: var(--cream); border-radius: 28px 28px 0 0; padding: 20px 22px calc(24px + env(safe-area-inset-bottom)); max-height: 88vh; max-height: 88dvh; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; animation: sheetIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+
+/* "Cancelar" y "Guardar" quedan pegados abajo, siempre a la vista: antes había
+   que bajar toda la hoja para llegar a ellos, y en el iPhone eso no siempre se
+   podía. Lo de abajo (borrador, eliminar) sigue en la lista. */
+.sheet-actions-fijas { position: sticky; bottom: calc(-24px - env(safe-area-inset-bottom)); z-index: 2; background: var(--cream); padding: 10px 0 calc(14px + env(safe-area-inset-bottom)); margin-top: 0; }
+.sheet-actions-fijas::before { content: ''; position: absolute; left: 0; right: 0; top: -18px; height: 18px; background: linear-gradient(to top, var(--cream), transparent); pointer-events: none; }
 .sheet-handle { box-sizing: content-box; width: 40px; height: 4px; background: var(--border); border-radius: 4px; margin: 0 auto 16px; padding: 12px 30px; background-clip: content-box; cursor: grab; touch-action: none; }
 .sheet-title { font-family: var(--font-heading); font-size: 19px; font-weight: 800; margin-bottom: 16px; }
 .field { margin-bottom: 14px; }

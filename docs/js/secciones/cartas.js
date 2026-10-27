@@ -122,7 +122,7 @@ export function dibujarCartaAbierta() {
     <div class="carta-de ${claseTema(perfil.tema)}">${perfil.emoji} De ${escapar(nombreDe(carta.autor))}</div>
     <div class="sheet-title">${escapar(carta.titulo)}</div>
     ${cuerpo}
-    <div class="sheet-actions">
+    <div class="sheet-actions sheet-actions-fijas">
       <button type="button" class="btn btn-secondary" data-accion="cerrar-carta">Cerrar</button>
     </div>
   </div></div>`;
@@ -166,7 +166,7 @@ export function dibujarHojaCarta() {
             <label>Ábrela…</label>
             <div class="sort-chips envuelto">${motivos}</div>
           </div>`}
-      <div class="sheet-actions">
+      <div class="sheet-actions sheet-actions-fijas">
         <button type="button" class="btn btn-secondary" data-accion="hoja-cancelar">Cancelar</button>
         <button type="submit" class="btn btn-primary">Guardar la carta</button>
       </div>

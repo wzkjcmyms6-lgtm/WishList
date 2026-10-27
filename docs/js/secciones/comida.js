@@ -58,7 +58,7 @@ export function dibujarHojaComida() {
                value="${escapar(item.restaurant)}" maxlength="150" /></div>
       <div class="field"><label>Notas (opcional)</label>
         <textarea name="note" placeholder="Sin cebolla, bien picante..." maxlength="300">${escapar(item.note)}</textarea></div>
-      <div class="sheet-actions">
+      <div class="sheet-actions sheet-actions-fijas">
         <button type="button" class="btn btn-secondary" data-accion="hoja-cancelar">Cancelar</button>
         <button type="submit" class="btn btn-primary">Guardar</button>
       </div>

@@ -86,7 +86,7 @@ export function dibujarHojaCancion() {
         <textarea name="historia" maxlength="1000"
                   placeholder="La historia de esta canción...">${escapar(item.historia)}</textarea>
       </div>
-      <div class="sheet-actions">
+      <div class="sheet-actions sheet-actions-fijas">
         <button type="button" class="btn btn-secondary" data-accion="hoja-cancelar">Cancelar</button>
         <button type="submit" class="btn btn-primary">Guardar</button>
       </div>

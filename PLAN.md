@@ -212,6 +212,25 @@ una fórmula y se revisó en las capturas).
 auditoría automática. La suite nueva `probar-ux.js` cubre el scroll, el foco,
 el "atrás", el doble toque y el no perder lo escrito.
 
+**Corregido después, con un video del iPhone de Manuelito:** la hoja de
+escribir no se podía bajar ni cerrar arrastrándola, y el botón "Guardar"
+quedaba fuera de la pantalla.
+
+- "Cancelar" y "Guardar" ahora quedan pegados abajo de la hoja, siempre a la
+  vista, sin tener que bajar nada.
+- El gesto de arrastrar la hoja hacia abajo para cerrarla funciona desde
+  cualquier parte de la hoja (antes solo desde el tirador de 40 px de arriba) y
+  con un recorrido razonable (antes había que bajarla el 60 % de su alto, o sea
+  casi media pantalla, así que parecía que no se podía).
+- Solo se cierra si la hoja está arriba de todo y el dedo va claramente hacia
+  abajo; si está a medio bajar, el gesto sigue siendo deslizar.
+- **Se volvió a bloquear el zoom del navegador.** Haberlo liberado (por
+  accesibilidad) hizo que en el iPhone la página terminara agrandada y corrida,
+  con la hoja a medio salir de la pantalla. Primero que funcione.
+
+Esto no se pudo reproducir acá: el entorno solo tiene Chromium, donde la hoja
+siempre se deslizó bien. Hay que probarlo en el iPhone.
+
 **Queda anotado, no es una falla:** "Comida" (lo que les gusta comer) y
 "Recetas" (lo que quieren cocinar) se parecen de nombre. Si alguna vez
 confunden, conviene renombrar una de las dos.
