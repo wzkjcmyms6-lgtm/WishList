@@ -335,6 +335,66 @@ input:focus, textarea:focus { outline: 2px solid var(--pink-deep); outline-offse
 .frasco-emoji { font-size: 20px; }
 .frasco-abierto .recuerdo-texto { margin: 8px 0 10px; font-size: 14.5px; line-height: 1.5; }
 
+/* ---------- Atajos de Inicio ---------- */
+.atajos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.atajo { background: var(--card); border-radius: var(--radius-md); padding: 16px 10px; font-family: var(--font-heading); font-size: 13.5px; font-weight: 700; color: var(--ink); display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 76px; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+.atajo span { font-size: 22px; }
+
+/* ---------- Planes ---------- */
+.planes { padding: 0 22px 24px; display: flex; flex-direction: column; gap: 16px; }
+.planes-grupo { display: flex; flex-direction: column; gap: 10px; }
+.plan { background: var(--card); border-radius: var(--radius-md); padding: 14px; display: flex; align-items: flex-start; gap: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+.plan.hecho { background: var(--chip-bg); box-shadow: none; }
+.plan.hecho .plan-titulo { text-decoration: line-through; color: var(--muted); }
+.plan-marca { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 19px; flex-shrink: 0; background: var(--cream); }
+.plan.hecho .plan-marca { background: transparent; }
+.plan-vacia { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border); display: block; }
+.plan-cuerpo { flex: 1; min-width: 0; }
+.plan-titulo { font-family: var(--font-heading); font-weight: 700; font-size: 15px; word-break: break-word; }
+.plan-nota { color: var(--muted); font-size: 13px; line-height: 1.45; margin-top: 4px; }
+.plan-pie { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.plan-autor { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; }
+.plan-autor.theme-pink { background: var(--pink-soft); color: var(--pink-deep); }
+.plan-autor.theme-blue { background: var(--blue-soft); color: var(--blue-deep); }
+.plan-cuando { font-size: 11.5px; color: var(--muted); }
+
+/* ---------- Canciones ---------- */
+.canciones { padding: 0 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+.cancion { background: var(--card); border-radius: var(--radius-md); padding: 16px; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+.cancion-cabecera { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.cancion-datos { flex: 1; min-width: 0; }
+.cancion-titulo { font-family: var(--font-heading); font-weight: 700; font-size: 15.5px; word-break: break-word; }
+.cancion-artista { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.cancion-player { width: 100%; border: none; border-radius: 12px; display: block; margin-bottom: 10px; }
+.cancion-historia { font-size: 14.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; margin-bottom: 10px; }
+.cancion-autor { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+.cancion-autor.theme-pink { background: var(--pink-soft); color: var(--pink-deep); }
+.cancion-autor.theme-blue { background: var(--blue-soft); color: var(--blue-deep); }
+
+/* ---------- Resumen del año ---------- */
+.resumen { padding: 0 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+.resumen-portada { background: linear-gradient(135deg, var(--pink), var(--blue)); border-radius: var(--radius-lg); padding: 30px 20px; text-align: center; box-shadow: 0 10px 24px rgba(194,75,124,0.18); }
+.resumen-anio { font-family: var(--font-heading); font-size: 50px; font-weight: 800; line-height: 1; }
+.resumen-bajada { font-size: 14px; font-weight: 600; opacity: 0.85; margin-top: 6px; }
+.resumen-datos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.resumen-dato { background: var(--card); border-radius: var(--radius-md); padding: 18px 12px; text-align: center; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+.resumen-numero { font-family: var(--font-heading); font-size: 30px; font-weight: 800; color: var(--pink-deep); }
+.resumen-etiqueta { font-size: 12.5px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+.resumen-tarjeta { background: var(--card); border-radius: var(--radius-md); padding: 18px; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+.resumen-mes { font-family: var(--font-heading); font-size: 22px; font-weight: 800; text-transform: capitalize; }
+.resumen-fila { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.resumen-fila:last-child { margin-bottom: 0; }
+.resumen-fila .barra { flex: 1; margin-bottom: 0; }
+.resumen-autor { font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.resumen-autor.theme-pink { background: var(--pink-soft); color: var(--pink-deep); }
+.resumen-autor.theme-blue { background: var(--blue-soft); color: var(--blue-deep); }
+.resumen-cuenta { font-weight: 800; font-size: 14px; min-width: 24px; text-align: right; }
+.nube { display: flex; flex-wrap: wrap; gap: 8px; }
+.nube-palabra { display: inline-flex; align-items: baseline; gap: 5px; padding: 7px 12px; border-radius: 999px; background: var(--chip-bg); font-weight: 700; font-size: 14px; }
+.nube-palabra.n0 { background: var(--pink-soft); color: var(--pink-deep); font-size: 17px; }
+.nube-palabra.n1 { background: var(--blue-soft); color: var(--blue-deep); font-size: 15.5px; }
+.nube-veces { font-size: 11px; opacity: 0.65; font-weight: 600; }
+
 /* ---------- Mapa ---------- */
 .mapa { padding: 0 22px 24px; }
 .mapa .btn.ancho { width: 100%; margin-bottom: 10px; }

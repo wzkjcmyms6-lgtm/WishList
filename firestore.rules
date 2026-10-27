@@ -147,17 +147,40 @@ service cloud.firestore {
       allow read, write: if somosNosotros();
     }
 
+    // ---------- Planes juntos ----------
+    // Es una lista compartida: cualquiera de los dos puede tachar algo.
+
+    match /plans/{planId} {
+      allow read:   if somosNosotros();
+      allow create: if somosNosotros() && loCreoComoMio();
+      allow update: if somosNosotros() && (soyElAutor() || soloCambia(['hecho', 'hechoEn', 'hechoPor']));
+      allow delete: if somosNosotros() && soyElAutor();
+    }
+
+    // ---------- Nuestras canciones ----------
+
+    match /songs/{songId} {
+      allow read:           if somosNosotros();
+      allow create:         if somosNosotros() && loCreoComoMio();
+      allow update, delete: if somosNosotros() && soyElAutor();
+    }
+
     // ---------- Deseos ----------
 
     match /wishlist_items/{itemId} {
       allow read:   if somosNosotros();
       allow create: if somosNosotros() && request.resource.data.owner == miPerfil();
-      // El dueño edita lo suyo; el otro solo puede reservar o soltar la reserva.
-      allow update: if somosNosotros() && (
-        resource.data.owner == miPerfil()
-        || soloCambia(['reserved', 'reservedBy'])
-      );
+      allow update: if somosNosotros() && resource.data.owner == miPerfil();
       allow delete: if somosNosotros() && resource.data.owner == miPerfil();
+    }
+
+    // Quién va a regalar qué. Vive aparte del deseo para que la sorpresa
+    // aguante de verdad: el dueño de la lista no puede leer esto ni mirando
+    // los datos crudos, porque el servidor solo se lo entrega a quien reservó.
+
+    match /reservations/{itemId} {
+      allow create:               if somosNosotros() && loCreoComoMio();
+      allow read, update, delete: if somosNosotros() && soyElAutor();
     }
 
     match /food_items/{itemId} {

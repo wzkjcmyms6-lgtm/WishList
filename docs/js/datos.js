@@ -20,6 +20,9 @@ const graciasCol = collection(db, 'gratitude');
 const cartasCol = collection(db, 'letters');
 const cartasTextoCol = collection(db, 'letter_bodies');
 const lugaresCol = collection(db, 'places');
+const planesCol = collection(db, 'plans');
+const cancionesCol = collection(db, 'songs');
+const reservasCol = collection(db, 'reservations');
 const ajustesDoc = doc(db, 'settings', 'couple');
 
 let cortarEscuchas = [];
@@ -75,6 +78,23 @@ export function escucharDatos(alCambiar) {
     alCambiar();
   });
 
+  escuchar(planesCol, (snap) => {
+    estado.planes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    alCambiar();
+  });
+
+  escuchar(cancionesCol, (snap) => {
+    estado.canciones = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    alCambiar();
+  });
+
+  // Solo las reservas propias: las del otro el servidor no las entrega, que es
+  // justamente lo que mantiene la sorpresa.
+  escuchar(query(reservasCol, where('autor', '==', estado.sesion)), (snap) => {
+    estado.misReservas = snap.docs.map((d) => d.id);
+    alCambiar();
+  });
+
   escuchar(deseosCol, (snap) => {
     estado.deseos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     alCambiar();
@@ -102,6 +122,9 @@ export function dejarDeEscuchar() {
   estado.borradores = [];
   estado.cartas = [];
   estado.lugares = [];
+  estado.planes = [];
+  estado.canciones = [];
+  estado.misReservas = [];
   estado.deseos = [];
   estado.comidas = [];
   estado.gustos = {};
@@ -412,11 +435,50 @@ export function borrarDeseo(id) {
   return deleteDoc(doc(deseosCol, id));
 }
 
-export function alternarReserva(deseo) {
-  return updateDoc(doc(deseosCol, deseo.id), {
-    reserved: !deseo.reserved,
-    reservedBy: !deseo.reserved ? estado.sesion : null,
+export function alternarReserva(idDeseo, estabaReservado) {
+  if (estabaReservado) return deleteDoc(doc(reservasCol, idDeseo));
+  return setDoc(doc(reservasCol, idDeseo), { autor: estado.sesion, createdAt: Date.now() });
+}
+
+// ---------- Planes juntos ----------
+
+export function crearPlan(datos) {
+  return addDoc(planesCol, { ...datos, autor: estado.sesion, hecho: false, hechoEn: null, hechoPor: null, createdAt: Date.now() });
+}
+
+export function editarPlan(id, datos) {
+  return updateDoc(doc(planesCol, id), datos);
+}
+
+export function marcarPlan(id, hecho) {
+  return updateDoc(doc(planesCol, id), {
+    hecho,
+    hechoEn: hecho ? Date.now() : null,
+    hechoPor: hecho ? estado.sesion : null,
   });
+}
+
+export function borrarPlan(id) {
+  return deleteDoc(doc(planesCol, id));
+}
+
+// ---------- Canciones ----------
+
+export function crearCancion(datos) {
+  return addDoc(cancionesCol, { ...datos, autor: estado.sesion, createdAt: Date.now() });
+}
+
+export function borrarCancion(id) {
+  return deleteDoc(doc(cancionesCol, id));
+}
+
+// ---------- Resumen del año ----------
+
+export async function traerAnio(anio) {
+  const snap = await getDocs(query(
+    entradasCol, where('fecha', '>=', `${anio}-01-01`), where('fecha', '<=', `${anio}-12-31`),
+  ));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 export function crearComida(datos) {

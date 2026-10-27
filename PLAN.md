@@ -130,14 +130,22 @@ lo niega. No es la pantalla la que lo esconde.
 
 ---
 
-## Fase 3 — Planes y juego ⬜
+## Fase 3 — Planes y juego ✅
+
+| | Tarea |
+|---|---|
+| ✅ | Planes juntos; al tacharlos ofrece escribir el recuerdo |
+| ✅ | Deseos integrados, con la reserva de verdad secreta |
+| ✅ | Nuestras canciones, con reproductor de Spotify |
+| ✅ | Resumen del año tipo "Wrapped" |
+
 
 - Planes juntos; al marcar uno como hecho, ofrecer crear el recuerdo.
 - **Deseos**: la wishlist actual (Regalos, Comida, Gustos) con el diseño nuevo y
   todas sus funciones.
-  - *Pendiente de diseño:* hoy `reserved`/`reservedBy` viven dentro del deseo, así
-    que el dueño podría ver la reserva si mira los datos crudos. Mover las
-    reservas a una colección aparte que solo lea quien reserva.
+  - *Resuelto:* las reservas se mudaron a la colección `reservations`, con un
+    documento por deseo que solo lee quien reservó. El dueño de la lista ya no
+    puede enterarse ni mirando los datos crudos.
 - Nuestras canciones (links o embeds de Spotify con su historia).
 - Resumen anual tipo "Wrapped".
 

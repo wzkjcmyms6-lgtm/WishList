@@ -29,9 +29,10 @@ export function filtrarYOrdenar(lista, hundirReservados) {
     resultado.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   }
 
-  // Lo que ya tiene dueño se va al final, sin alterar el orden de lo demás.
+  // Lo que ya vas a regalar se va al final, sin alterar el orden de lo demás.
   if (hundirReservados) {
-    resultado.sort((a, b) => (a.reserved ? 1 : 0) - (b.reserved ? 1 : 0));
+    const reservado = (d) => (estado.misReservas.includes(d.id) ? 1 : 0);
+    resultado.sort((a, b) => reservado(a) - reservado(b));
   }
   return resultado;
 }
@@ -59,10 +60,8 @@ function tarjetaDeseo(deseo, modo, indice) {
       <button class="icon-btn" data-accion="editar-deseo" data-id="${deseo.id}">✏️</button>
       <button class="icon-btn danger" data-accion="borrar-deseo" data-id="${deseo.id}">🗑️</button>
     </div>`;
-  } else if (deseo.reserved && deseo.reservedBy === estado.sesion) {
+  } else if (estado.misReservas.includes(deseo.id)) {
     extra = `<div class="reserve-btn reserved" data-accion="soltar-reserva" data-id="${deseo.id}">✅ Lo vas a regalar tú</div>`;
-  } else if (deseo.reserved) {
-    extra = '<div class="reserved-by-other">🎁 Ya está reservado</div>';
   } else {
     extra = `<button class="reserve-btn" data-accion="reservar" data-id="${deseo.id}">🎁 Yo lo regalo</button>`;
   }

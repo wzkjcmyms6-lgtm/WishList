@@ -19,6 +19,9 @@ import {
 import { dibujarAlbum, dibujarVisor } from './secciones/album.js';
 import { dibujarCartas, dibujarCartaAbierta, dibujarHojaCarta } from './secciones/cartas.js';
 import { dibujarMapa, dibujarHojaLugar, montarMapa, centrarEn } from './secciones/mapa.js';
+import { dibujarPlanes, dibujarHojaPlan } from './secciones/planes.js';
+import { dibujarCanciones, dibujarHojaCancion } from './secciones/canciones.js';
+import { dibujarResumen, calcularResumen } from './secciones/resumen.js';
 import { activarVisor } from './visor.js';
 import { dibujarPregunta, preguntaDeHoy } from './secciones/pregunta.js';
 import { dibujarDeseos, dibujarHojaDeseo } from './secciones/deseos.js';
@@ -65,6 +68,9 @@ function dibujarPanel() {
   else if (seccion === 'pregunta') contenido = dibujarPregunta();
   else if (seccion === 'cartas') contenido = dibujarCartas();
   else if (seccion === 'mapa') contenido = dibujarMapa();
+  else if (seccion === 'planes') contenido = dibujarPlanes();
+  else if (seccion === 'canciones') contenido = dibujarCanciones();
+  else if (seccion === 'resumen') contenido = dibujarResumen();
   else if (seccion === 'ajustes') contenido = dibujarAjustes();
   else if (seccion === 'gustos') contenido = dibujarGustos();
   else if (seccion === 'comida') contenido = dibujarComidas();
@@ -76,6 +82,9 @@ function dibujarPanel() {
     pregunta: 'Para conocernos más',
     cartas: 'Para abrir después',
     mapa: 'Nuestros lugares',
+    planes: 'Cosas por hacer juntos',
+    canciones: 'La banda sonora',
+    resumen: 'Nuestro año',
     ajustes: 'Tu cuenta y este celular',
     gustos: `Lo que le gusta a ${escapar(nombrePareja)}`,
     comida: estado.pestana === 'mia' ? 'Tus comidas favoritas' : `Las comidas de ${escapar(nombrePareja)}`,
@@ -132,6 +141,8 @@ function dibujarHoja() {
   if (!estado.hoja) return '';
   if (estado.hoja.tipo === 'carta') return dibujarHojaCarta();
   if (estado.hoja.tipo === 'lugar') return dibujarHojaLugar();
+  if (estado.hoja.tipo === 'plan') return dibujarHojaPlan();
+  if (estado.hoja.tipo === 'cancion') return dibujarHojaCancion();
   if (estado.hoja.tipo === 'entrada') return dibujarHojaEntrada();
   if (estado.hoja.tipo === 'comida') return dibujarHojaComida();
   return dibujarHojaDeseo();
@@ -691,6 +702,38 @@ const acciones = {
   'sacar-recuerdo': () => sacarDelFrasco(),
   'ir-cartas': () => { estado.seccion = 'cartas'; dibujar(); },
   'ir-mapa': () => { estado.seccion = 'mapa'; estado.agregandoLugar = false; dibujar(); },
+  'ir-planes': () => { estado.seccion = 'planes'; dibujar(); },
+  'ir-canciones': () => { estado.seccion = 'canciones'; dibujar(); },
+  'ir-resumen': () => {
+    estado.seccion = 'resumen';
+    estado.resumen = null;
+    dibujar();
+    armarResumen(Number(hoy().slice(0, 4)));
+  },
+  'resumen-anio': (elemento) => {
+    estado.resumen = null;
+    dibujar();
+    armarResumen(Number(elemento.dataset.valor));
+  },
+
+  'nuevo-plan': () => abrirHoja('plan', 'nuevo', { titulo: '', nota: '' }),
+  'marcar-plan': (elemento) => marcarPlan(elemento.dataset.id),
+  'borrar-plan': (elemento) => {
+    const id = elemento.dataset.id;
+    preguntar('¿Borrar este plan?', async () => {
+      try { await datos.borrarPlan(id); avisarYRedibujar('Plan borrado'); }
+      catch (e) { avisarYRedibujar('No se pudo borrar'); }
+    });
+  },
+
+  'nueva-cancion': () => abrirHoja('cancion', 'nuevo', { titulo: '', artista: '', enlace: '', historia: '' }),
+  'borrar-cancion': (elemento) => {
+    const id = elemento.dataset.id;
+    preguntar('¿Quitar esta canción?', async () => {
+      try { await datos.borrarCancion(id); avisarYRedibujar('Canción quitada'); }
+      catch (e) { avisarYRedibujar('No se pudo quitar'); }
+    });
+  },
   'alternar-agregar-lugar': () => {
     estado.agregandoLugar = !estado.agregandoLugar;
     dibujar();
@@ -875,6 +918,39 @@ function cambiarFotoDelVisor(direccion) {
   abrirVisor(siguiente);
 }
 
+async function armarResumen(anio) {
+  try {
+    const entradas = await datos.traerAnio(anio);
+    estado.resumen = calcularResumen(entradas, anio);
+  } catch (e) {
+    estado.resumen = calcularResumen([], anio);
+  }
+  if (estado.seccion === 'resumen') dibujar();
+}
+
+// Al tachar un plan se ofrece convertirlo en recuerdo: la idea es que lo que
+// se hizo termine escrito, no solo marcado.
+async function marcarPlan(id) {
+  const plan = estado.planes.find((p) => p.id === id);
+  if (!plan) return;
+  const seHizo = !plan.hecho;
+  try {
+    await datos.marcarPlan(id, seHizo);
+  } catch (e) {
+    avisarYRedibujar('No se pudo marcar');
+    return;
+  }
+  if (!seHizo) { dibujar(); return; }
+  preguntar(`¡Lo hicieron! ¿Escribes el recuerdo de "${plan.titulo}"?`, () => {
+    abrirHojaEntrada('nuevo', null).then(() => {
+      if (!estado.hoja) return;
+      estado.hoja.item.texto = plan.titulo;
+      estado.hoja.item.etiquetas = ['primera-vez'];
+      dibujar();
+    });
+  });
+}
+
 function tocaronElMapa(lat, lng) {
   if (!estado.agregandoLugar) return;
   estado.agregandoLugar = false;
@@ -924,10 +1000,8 @@ function moverMes(cuantos) {
 }
 
 async function cambiarReserva(id) {
-  const deseo = estado.deseos.find((d) => d.id === id);
-  if (!deseo) return;
   try {
-    await datos.alternarReserva(deseo);
+    await datos.alternarReserva(id, estado.misReservas.includes(id));
   } catch (e) {
     avisarYRedibujar('No se pudo actualizar. Revisa tu conexión.');
   }
@@ -1141,6 +1215,45 @@ function conectarEventos() {
         await datos.crearCarta(sobre, texto);
         estado.hoja = null;
         avisarYRedibujar('Carta guardada 💌');
+      } catch (e) {
+        avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
+      }
+    });
+  }
+
+  const formPlan = raiz.querySelector('#form-plan');
+  if (formPlan) {
+    formPlan.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      const campos = new FormData(formPlan);
+      const titulo = String(campos.get('titulo') || '').trim().slice(0, 120);
+      if (!titulo) { avisarYRedibujar('Ponle un nombre al plan'); return; }
+      try {
+        await datos.crearPlan({ titulo, nota: String(campos.get('nota') || '').trim().slice(0, 500) });
+        estado.hoja = null;
+        avisarYRedibujar('Plan agregado ✨');
+      } catch (e) {
+        avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
+      }
+    });
+  }
+
+  const formCancion = raiz.querySelector('#form-cancion');
+  if (formCancion) {
+    formCancion.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      const campos = new FormData(formCancion);
+      const titulo = String(campos.get('titulo') || '').trim().slice(0, 120);
+      if (!titulo) { avisarYRedibujar('Falta el nombre de la canción'); return; }
+      try {
+        await datos.crearCancion({
+          titulo,
+          artista: String(campos.get('artista') || '').trim().slice(0, 120),
+          enlace: String(campos.get('enlace') || '').trim().slice(0, 500),
+          historia: String(campos.get('historia') || '').trim().slice(0, 1000),
+        });
+        estado.hoja = null;
+        avisarYRedibujar('Canción guardada 🎵');
       } catch (e) {
         avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
       }
