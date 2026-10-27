@@ -10,6 +10,8 @@ import {
   dibujarAviso, dibujarConfirmacion, dibujarFotoAmpliada, activarArrastreDeHoja,
 } from './ui.js';
 import { hoy, esFechaValida } from './fechas.js';
+import { aplicarTema, guardarTema } from './tema.js';
+import { armarRespaldo } from './secciones/respaldo.js';
 import * as sesion from './auth.js';
 import * as datos from './datos.js';
 import { dibujarInicio } from './secciones/inicio.js';
@@ -19,7 +21,7 @@ import {
 import { dibujarAlbum, dibujarVisor } from './secciones/album.js';
 import { dibujarCartas, dibujarCartaAbierta, dibujarHojaCarta } from './secciones/cartas.js';
 import { dibujarMapa, dibujarHojaLugar, montarMapa, centrarEn } from './secciones/mapa.js';
-import { dibujarPlanes, dibujarHojaPlan } from './secciones/planes.js';
+import { dibujarPlanes, dibujarHojaPlan, IDEAS_A_DISTANCIA } from './secciones/planes.js';
 import { dibujarCanciones, dibujarHojaCancion } from './secciones/canciones.js';
 import { dibujarResumen, calcularResumen } from './secciones/resumen.js';
 import { activarVisor } from './visor.js';
@@ -163,6 +165,12 @@ function dibujar() {
   html += dibujarFotoAmpliada();
   html += dibujarVisor();
   html += dibujarCartaAbierta();
+  if (estado.actualizacion) {
+    html += `<div class="aviso-version">
+      <span>Hay una versión nueva de Ositos</span>
+      <button class="btn btn-primary" data-accion="actualizar-app">Actualizar</button>
+    </div>`;
+  }
   html += dibujarAviso();
 
   raiz.innerHTML = html;
@@ -311,10 +319,9 @@ async function abrirHojaEntrada(modo, entrada) {
 
 // Guarda lo escrito antes de redibujar, para no perderlo al subir una foto.
 function sincronizarHoja() {
-  const formulario = raiz.querySelector('#form-entrada')
-    || raiz.querySelector('#form-carta')
-    || raiz.querySelector('#form-deseo')
-    || raiz.querySelector('#form-comida');
+  // Cualquier formulario que esté dentro de la hoja: así no hay que acordarse
+  // de agregarlo a una lista cada vez que aparece una pantalla nueva.
+  const formulario = raiz.querySelector('.sheet form');
   if (!formulario || !estado.hoja) return;
   const campos = new FormData(formulario);
   for (const [clave, valor] of campos.entries()) {
@@ -553,6 +560,15 @@ const acciones = {
     estado.pantalla = 'pin-crear';
     dibujar();
   },
+  'descargar-respaldo': () => descargarRespaldo(),
+  'actualizar-app': () => {
+    if (estado.actualizacion) estado.actualizacion.postMessage('actualizar');
+    window.location.reload();
+  },
+  'elegir-tema': (elemento) => {
+    guardarTema(elemento.dataset.valor);
+    dibujar();
+  },
   'quitar-pin': () => {
     sesion.borrarPin(estado.sesion);
     sesion.recordarSinPin(estado.sesion, true);
@@ -716,7 +732,23 @@ const acciones = {
     armarResumen(Number(elemento.dataset.valor));
   },
 
-  'nuevo-plan': () => abrirHoja('plan', 'nuevo', { titulo: '', nota: '' }),
+  'nuevo-plan': () => abrirHoja('plan', 'nuevo', { titulo: '', nota: '', modo: 'juntos' }),
+  'modo-plan': (elemento) => {
+    sincronizarHoja();
+    estado.hoja.item.modo = elemento.dataset.valor;
+    dibujar();
+  },
+  'filtro-plan': (elemento) => { estado.filtroPlan = elemento.dataset.valor; dibujar(); },
+  'usar-idea': async (elemento) => {
+    const idea = IDEAS_A_DISTANCIA[Number(elemento.dataset.indice)];
+    if (!idea) return;
+    try {
+      await datos.crearPlan({ titulo: idea, nota: '', modo: 'distancia' });
+      avisarYRedibujar('Agregado a los planes ✨');
+    } catch (e) {
+      avisarYRedibujar('No se pudo agregar');
+    }
+  },
   'marcar-plan': (elemento) => marcarPlan(elemento.dataset.id),
   'borrar-plan': (elemento) => {
     const id = elemento.dataset.id;
@@ -916,6 +948,30 @@ function cambiarFotoDelVisor(direccion) {
     return;
   }
   abrirVisor(siguiente);
+}
+
+async function descargarRespaldo() {
+  estado.respaldo = { enCurso: true, paso: 'Preparando…' };
+  dibujar();
+  try {
+    const archivo = await armarRespaldo((paso) => {
+      estado.respaldo = { enCurso: true, paso };
+      dibujar();
+    });
+    const url = URL.createObjectURL(archivo);
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = `ositos-${hoy()}.zip`;
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    estado.respaldo = null;
+    avisarYRedibujar('Respaldo listo 💾');
+  } catch (e) {
+    estado.respaldo = null;
+    avisarYRedibujar('No se pudo armar el respaldo');
+  }
 }
 
 async function armarResumen(anio) {
@@ -1229,7 +1285,11 @@ function conectarEventos() {
       const titulo = String(campos.get('titulo') || '').trim().slice(0, 120);
       if (!titulo) { avisarYRedibujar('Ponle un nombre al plan'); return; }
       try {
-        await datos.crearPlan({ titulo, nota: String(campos.get('nota') || '').trim().slice(0, 500) });
+        await datos.crearPlan({
+          titulo,
+          nota: String(campos.get('nota') || '').trim().slice(0, 500),
+          modo: estado.hoja.item.modo || 'juntos',
+        });
         estado.hoja = null;
         avisarYRedibujar('Plan agregado ✨');
       } catch (e) {
@@ -1326,4 +1386,28 @@ function conectarEventos() {
   }
 }
 
+aplicarTema();
 dibujar();
+
+// Service worker: hace que la app abra sin internet y avisa cuando hay una
+// versión nueva, en vez de cambiarla por debajo sin que nadie se entere.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then((registro) => {
+      if (registro.waiting) {
+        estado.actualizacion = registro.waiting;
+        dibujar();
+      }
+      registro.addEventListener('updatefound', () => {
+        const nuevo = registro.installing;
+        if (!nuevo) return;
+        nuevo.addEventListener('statechange', () => {
+          if (nuevo.state === 'installed' && navigator.serviceWorker.controller) {
+            estado.actualizacion = nuevo;
+            dibujar();
+          }
+        });
+      });
+    }).catch(() => undefined);
+  });
+}

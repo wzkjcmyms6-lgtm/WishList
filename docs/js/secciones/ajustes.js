@@ -5,6 +5,8 @@
 import { estado, PERFILES, pareja, nombreDe } from '../estado.js';
 import { escapar } from '../ui.js';
 import { tienePin } from '../auth.js';
+import { temaGuardado } from '../tema.js';
+import { dibujarBloqueRespaldo } from './respaldo.js';
 
 // 1 GiB es lo que da el plan gratis de Firestore.
 const LIMITE = 1024 * 1024 * 1024;
@@ -13,6 +15,23 @@ const LIMITE = 1024 * 1024 * 1024;
 function yaEstaInstalada() {
   return window.navigator.standalone === true
     || window.matchMedia('(display-mode: standalone)').matches;
+}
+
+function bloqueTema() {
+  const actual = temaGuardado();
+  const opciones = [
+    { clave: 'auto', texto: '📱 Como el celular' },
+    { clave: 'claro', texto: '☀️ Claro' },
+    { clave: 'oscuro', texto: '🌙 Oscuro' },
+  ];
+  return `<div class="ajuste-bloque">
+    <div class="ajuste-titulo">Colores</div>
+    <div class="tabs chico">
+      ${opciones.map((o) => `<button class="tab-btn ${actual === o.clave ? 'active' : ''}"
+        data-accion="elegir-tema" data-valor="${o.clave}">${o.texto}</button>`).join('')}
+    </div>
+    <div class="ajuste-nota">Solo en este celular. Cada quien elige el suyo.</div>
+  </div>`;
 }
 
 function bloqueInstalar() {
@@ -116,9 +135,13 @@ export function dibujarAjustes() {
       <div class="ajuste-nota">Se usan en toda la app. Déjalos vacíos para volver a los nombres.</div>
     </div>
 
+    ${bloqueTema()}
+
     ${bloqueInstalar()}
 
     ${bloqueEspacio()}
+
+    ${dibujarBloqueRespaldo()}
 
     <div class="ajuste-bloque">
       <div class="ajuste-titulo">Tu cuenta</div>

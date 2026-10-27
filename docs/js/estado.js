@@ -81,9 +81,12 @@ export const estado = {
   cartaAbierta: null,       // { id, texto | null | 'cerrada' }
   lugares: [],
   planes: [],
+  filtroPlan: 'todos',
   canciones: [],
   misReservas: [],
   resumen: null,
+  respaldo: null,
+  actualizacion: null,
   agregandoLugar: false,
   mapaRoto: false,
   editandoRespuesta: false,

@@ -335,6 +335,120 @@ input:focus, textarea:focus { outline: 2px solid var(--pink-deep); outline-offse
 .frasco-emoji { font-size: 20px; }
 .frasco-abierto .recuerdo-texto { margin: 8px 0 10px; font-size: 14.5px; line-height: 1.5; }
 
+
+/* ---------- Modo oscuro ---------- */
+/* Los mismos colores, apagados: la crema se vuelve noche y la tinta, crema.
+   El rosa y el verde agua se aclaran un poco para que se sigan leyendo. */
+:root[data-tema="oscuro"],
+:root:not([data-tema="claro"]) {
+  --noche-cream: #1B1815;
+  --noche-page: #100E0C;
+  --noche-ink: #F4EEE5;
+  --noche-muted: #9C9388;
+  --noche-card: #272320;
+  --noche-border: #3B3531;
+  --noche-chip: #332D29;
+  --noche-pink: #E8A6C2;
+  --noche-pink-deep: #F3A8C6;
+  --noche-pink-soft: #3C2630;
+  --noche-blue: #93D4CC;
+  --noche-blue-deep: #8FD2C9;
+  --noche-blue-soft: #1D342F;
+  --noche-danger-soft: #3C2424;
+}
+
+:root[data-tema="oscuro"] {
+  --cream: var(--noche-cream);
+  --page-bg: var(--noche-page);
+  --ink: var(--noche-ink);
+  --muted: var(--noche-muted);
+  --card: var(--noche-card);
+  --border: var(--noche-border);
+  --chip-bg: var(--noche-chip);
+  --pink: var(--noche-pink);
+  --pink-deep: var(--noche-pink-deep);
+  --pink-soft: var(--noche-pink-soft);
+  --blue: var(--noche-blue);
+  --blue-deep: var(--noche-blue-deep);
+  --blue-soft: var(--noche-blue-soft);
+  --danger-soft: var(--noche-danger-soft);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    --cream: var(--noche-cream);
+    --page-bg: var(--noche-page);
+    --ink: var(--noche-ink);
+    --muted: var(--noche-muted);
+    --card: var(--noche-card);
+    --border: var(--noche-border);
+    --chip-bg: var(--noche-chip);
+    --pink: var(--noche-pink);
+    --pink-deep: var(--noche-pink-deep);
+    --pink-soft: var(--noche-pink-soft);
+    --blue: var(--noche-blue);
+    --blue-deep: var(--noche-blue-deep);
+    --blue-soft: var(--noche-blue-soft);
+    --danger-soft: var(--noche-danger-soft);
+  }
+}
+
+:root[data-tema="oscuro"] body,
+:root[data-tema="oscuro"] html {
+  background: linear-gradient(160deg, #15120F 0%, #100E0C 45%, #141119 100%);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) body,
+  :root:not([data-tema="claro"]) html {
+    background: linear-gradient(160deg, #15120F 0%, #100E0C 45%, #141119 100%);
+  }
+}
+
+/* Lo que en claro era tinta sobre crema y en oscuro quedaría ilegible. */
+:root[data-tema="oscuro"] .btn-primary,
+:root[data-tema="oscuro"] .tab-btn.active,
+:root[data-tema="oscuro"] .sort-chip.active,
+:root[data-tema="oscuro"] .escribir-grande,
+:root[data-tema="oscuro"] .toast,
+:root[data-tema="oscuro"] .calendario-dia.elegido {
+  background: var(--noche-ink);
+  color: var(--noche-cream);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) .btn-primary,
+  :root:not([data-tema="claro"]) .tab-btn.active,
+  :root:not([data-tema="claro"]) .sort-chip.active,
+  :root:not([data-tema="claro"]) .escribir-grande,
+  :root:not([data-tema="claro"]) .toast,
+  :root:not([data-tema="claro"]) .calendario-dia.elegido {
+    background: var(--noche-ink);
+    color: var(--noche-cream);
+  }
+}
+
+/* Las tarjetas con degradado pastel siguen siendo claras de noche, así que su
+   texto tiene que quedarse oscuro para poder leerse. */
+:root[data-tema="oscuro"] .inicio-destacado:not(.sin-fecha),
+:root[data-tema="oscuro"] .resumen-portada {
+  color: #15120F;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) .inicio-destacado:not(.sin-fecha),
+  :root:not([data-tema="claro"]) .resumen-portada {
+    color: #15120F;
+  }
+}
+
+/* ---------- Aviso de versión nueva ---------- */
+.aviso-version { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(86px + env(safe-area-inset-bottom)); width: calc(100% - 36px); max-width: 424px; background: var(--card); border-radius: var(--radius-md); padding: 14px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 10px 26px rgba(0,0,0,0.2); z-index: 70; animation: toastIn 0.25s ease; }
+.aviso-version span { flex: 1; font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+.aviso-version .btn { flex: 0 0 auto; padding: 10px 16px; font-size: 13.5px; }
+
+/* ---------- Ideas de planes ---------- */
+.ideas { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.idea { text-align: left; background: var(--cream); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 14px; line-height: 1.4; color: var(--ink); min-height: 44px; }
+.plan-modo { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--chip-bg); color: var(--muted); }
+
 /* ---------- Atajos de Inicio ---------- */
 .atajos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .atajo { background: var(--card); border-radius: var(--radius-md); padding: 16px 10px; font-family: var(--font-heading); font-size: 13.5px; font-weight: 700; color: var(--ink); display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 76px; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
