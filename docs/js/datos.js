@@ -560,6 +560,10 @@ export function crearCancion(datos) {
   return addDoc(cancionesCol, { ...datos, autor: estado.sesion, createdAt: Date.now() });
 }
 
+export function editarCancion(id, cambios) {
+  return updateDoc(doc(cancionesCol, id), cambios);
+}
+
 export function borrarCancion(id) {
   return deleteDoc(doc(cancionesCol, id));
 }

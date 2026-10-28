@@ -17,9 +17,15 @@ function tarjeta(cancion) {
   const perfil = PERFILES[cancion.autor] || PERFILES.lentina;
   const propia = cancion.autor === estado.sesion;
   const reproductor = spotify(cancion.enlace);
+  // La guardada, o la que se encontró recién en esta sesión (las del otro se
+  // guardan desde su celular, porque las reglas no dejan tocar sus cosas).
+  const portada = cancion.portada || estado.portadas[cancion.id] || '';
 
   return `<div class="cancion">
     <div class="cancion-cabecera">
+      <div class="cancion-portada">${portada
+        ? `<img src="${escapar(portada)}" alt="Portada de ${escapar(cancion.titulo)}" loading="lazy" />`
+        : '<span aria-hidden="true">🎵</span>'}</div>
       <div class="cancion-datos">
         <div class="cancion-titulo">${escapar(cancion.titulo)}</div>
         ${cancion.artista ? `<div class="cancion-artista">${escapar(cancion.artista)}</div>` : ''}

@@ -85,6 +85,7 @@ export const estado = {
   planes: [],
   filtroPlan: 'todos',
   canciones: [],
+  portadas: {},            // id de canción -> portada encontrada en esta sesión
   recetas: [],
   filtroReceta: 'pendientes',
   misReservas: [],

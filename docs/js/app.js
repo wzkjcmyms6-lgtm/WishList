@@ -27,6 +27,7 @@ import { dibujarCanciones, dibujarHojaCancion } from './secciones/canciones.js';
 import { dibujarRecetas, dibujarHojaReceta, IDEAS_DE_RECETAS } from './secciones/recetas.js';
 import { dibujarResumen, calcularResumen } from './secciones/resumen.js';
 import { activarVisor } from './visor.js';
+import { buscarPortada } from './portadas.js';
 import { dibujarPregunta, preguntaDeHoy } from './secciones/pregunta.js';
 import { dibujarDeseos, dibujarHojaDeseo } from './secciones/deseos.js';
 import { dibujarComidas, dibujarHojaComida } from './secciones/comida.js';
@@ -612,6 +613,34 @@ async function elegirFotosEntrada(archivos) {
   }
 }
 
+// ---------- Las portadas de las canciones ----------
+//
+// Se buscan solas al abrir la sección, de a una y sin apurar nada: si no hay
+// internet o el servicio no contesta, la canción se queda con su notita de
+// música y se vuelve a intentar la próxima vez que se abra la app.
+//
+// Las propias se guardan; las del otro solo se muestran, porque las reglas no
+// dejan tocar sus documentos. Las suyas las guarda su propio celular.
+const portadasIntentadas = new Set();
+
+async function completarPortadas() {
+  const pendientes = estado.canciones.filter((c) => !c.portada && !portadasIntentadas.has(c.id));
+  for (const cancion of pendientes) {
+    portadasIntentadas.add(cancion.id);
+    const portada = await buscarPortada(cancion);
+    if (!portada) continue;
+    estado.portadas[cancion.id] = portada;
+    if (estado.seccion === 'canciones') dibujar();
+    if (cancion.autor === estado.sesion) {
+      try {
+        await datos.editarCancion(cancion.id, { portada });
+      } catch (e) {
+        // Queda la de esta sesión; se vuelve a intentar guardarla otro día.
+      }
+    }
+  }
+}
+
 function preguntar(mensaje, alConfirmar, opciones = {}) {
   estado.confirmacion = { mensaje, alConfirmar, ...opciones };
   dibujar();
@@ -1007,7 +1036,7 @@ const acciones = {
   'ir-cartas': () => { estado.seccion = 'cartas'; dibujar(); },
   'ir-mapa': () => { estado.seccion = 'mapa'; estado.agregandoLugar = false; dibujar(); },
   'ir-planes': () => { estado.seccion = 'planes'; dibujar(); },
-  'ir-canciones': () => { estado.seccion = 'canciones'; dibujar(); },
+  'ir-canciones': () => { estado.seccion = 'canciones'; dibujar(); completarPortadas(); },
   'ir-recetas': () => { estado.seccion = 'recetas'; dibujar(); },
 
   'nueva-receta': () => abrirHoja('receta', 'nuevo', {
@@ -1744,6 +1773,7 @@ function conectarEventos() {
       avisarYRedibujar('Canción guardada 🎵');
       try {
         await datos.crearCancion(cancion);
+        completarPortadas();
       } catch (e) {
         estado.hoja = hojaPorSiFalla;
         avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');

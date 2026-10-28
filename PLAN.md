@@ -271,6 +271,32 @@ vez. Con el internet lento eso son varios segundos.
 Se reprodujo primero (tres toques = tres deseos idénticos, con foto, igual que
 en la captura) y después se arregló.
 
+## Portadas de las canciones ✅
+
+Cada canción muestra la carátula del disco. Se busca sola al abrir la sección,
+sin cuentas ni claves ni servidor propio:
+
+1. Si el link es de Spotify, se le pide al **oEmbed de Spotify** (público).
+2. Si no, se busca por nombre y artista en la **búsqueda de iTunes** (pública).
+3. La imagen encontrada se achica a 240 px y se **guarda en Firestore**, así se
+   sigue viendo sin internet y no se pierde si algún día cambia la dirección.
+   Si el servidor de la imagen no deja descargarla, queda el enlace. Si no hay
+   nada, la canción se queda con su notita de música. Nada se rompe en ninguno
+   de los casos.
+
+Las propias se guardan; las del otro solo se muestran mientras dure la sesión,
+porque las reglas no dejan escribir en sus documentos: las suyas las guarda su
+celular cuando él abre la sección. **No hace falta cambiar las reglas.**
+
+Lo único que sale del celular es el nombre de la canción o el link de Spotify.
+Nada del diario.
+
+**Probado con los dos servicios imitados** (están bloqueados desde el entorno
+de Claude): portada de Spotify, portada de iTunes, ya guardada al volver a
+entrar, imagen que no se deja descargar, búsqueda sin resultados y sin internet.
+
+---
+
 **Queda anotado, no es una falla:** "Comida" (lo que les gusta comer) y
 "Recetas" (lo que quieren cocinar) se parecen de nombre. Si alguna vez
 confunden, conviene renombrar una de las dos.
