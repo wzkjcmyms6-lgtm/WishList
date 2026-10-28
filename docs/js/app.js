@@ -46,7 +46,7 @@ document.addEventListener('touchmove', (e) => {
   if (e.touches.length > 1 && !estado.visor) e.preventDefault();
 }, { passive: false });
 
-const avisarYRedibujar = (mensaje) => { avisar(mensaje); dibujar(); };
+const avisarYRedibujar = (mensaje) => { soltarCandado(); avisar(mensaje); dibujar(); };
 
 const SECCIONES_LISTA = ['deseos', 'comida', 'gustos'];
 
@@ -300,12 +300,20 @@ function enfocarHojaNueva() {
   if (primero) primero.focus({ preventScroll: true });
 }
 
+// El candado de guardado. Antes se soltaba en cada dibujado, y eso lo dejaba
+// inútil justo donde hacía falta: Firestore muestra el dato en pantalla —y por
+// lo tanto redibuja— apenas lo guarda en el celular, pero la promesa recién se
+// cumple cuando el servidor contesta. En ese rato el botón volvía a quedar
+// vivo, la hoja seguía abierta, y un segundo toque creaba el deseo de nuevo.
 let guardando = false;
 let sueltaDelCandado = null;
 
-function dibujar() {
+function soltarCandado() {
   guardando = false;
   clearTimeout(sueltaDelCandado);
+}
+
+function dibujar() {
   const memoria = recordarPantalla();
   apartarNodosVivos();
 
@@ -629,6 +637,12 @@ async function guardarEntrada() {
   if (!contenido.texto) { avisarYRedibujar('Escribe algo, aunque sea una línea'); return; }
 
   const { modo, item, fotos, fotosQuitadas, audios, audiosQuitados } = estado.hoja;
+  // La hoja se cierra ya: el recuerdo está guardado en el celular y aparece en
+  // la lista al instante; lo que falta es la confirmación del servidor. Si esa
+  // falla de verdad, la hoja vuelve con todo lo escrito.
+  const hojaPorSiFalla = estado.hoja;
+  estado.hoja = null;
+  avisarYRedibujar(modo === 'editar' ? 'Recuerdo guardado' : '¡Guardado! 💛');
   try {
     if (modo === 'editar') {
       await datos.editarEntrada(item.id, contenido, fotos, audios);
@@ -640,9 +654,8 @@ async function guardarEntrada() {
       await datos.crearEntrada(contenido, nuevas, nuevosAudios);
       if (modo === 'borrador') await datos.borrarBorrador(item.id);
     }
-    estado.hoja = null;
-    avisarYRedibujar(modo === 'editar' ? 'Recuerdo guardado' : '¡Guardado! 💛');
   } catch (e) {
+    estado.hoja = hojaPorSiFalla;
     avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
   }
 }
@@ -673,12 +686,15 @@ async function guardarDeseo(campos) {
     image: campos.image || '',
   };
   const esNuevo = estado.hoja.modo === 'nuevo';
+  const id = esNuevo ? null : estado.hoja.item.id;
+  const hojaPorSiFalla = estado.hoja;
+  estado.hoja = null;
+  avisarYRedibujar(esNuevo ? '¡Agregado a tu lista! 🎉' : 'Cambios guardados');
   try {
     if (esNuevo) await datos.crearDeseo(contenido);
-    else await datos.editarDeseo(estado.hoja.item.id, contenido);
-    estado.hoja = null;
-    avisarYRedibujar(esNuevo ? '¡Agregado a tu lista! 🎉' : 'Cambios guardados');
+    else await datos.editarDeseo(id, contenido);
   } catch (e) {
+    estado.hoja = hojaPorSiFalla;
     avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
   }
 }
@@ -692,12 +708,15 @@ async function guardarComida(campos) {
     note: (campos.note || '').trim().slice(0, 300),
   };
   const esNueva = estado.hoja.modo === 'nuevo';
+  const id = esNueva ? null : estado.hoja.item.id;
+  const hojaPorSiFalla = estado.hoja;
+  estado.hoja = null;
+  avisarYRedibujar(esNueva ? '¡Agregado! 🍽️' : 'Cambios guardados');
   try {
     if (esNueva) await datos.crearComida(contenido);
-    else await datos.editarComida(estado.hoja.item.id, contenido);
-    estado.hoja = null;
-    avisarYRedibujar(esNueva ? '¡Agregado! 🍽️' : 'Cambios guardados');
+    else await datos.editarComida(id, contenido);
   } catch (e) {
+    estado.hoja = hojaPorSiFalla;
     avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
   }
 }
@@ -739,6 +758,7 @@ async function entrar(clave) {
     estado.errorAcceso = sesion.mensajeDeError(e);
   } finally {
     estado.entrando = false;
+    soltarCandado();
     if (!estado.sesion) dibujar();
   }
 }
@@ -1592,6 +1612,7 @@ function conectarEventos() {
       try {
         await datos.comentar(id, texto);
         estado.comentarios[id] = await datos.traerComentarios(id);
+        soltarCandado();
         dibujar();
       } catch (e) {
         avisarYRedibujar('No se pudo comentar');
@@ -1640,11 +1661,13 @@ function conectarEventos() {
           }
         : { titulo, tipo: 'motivo', motivo: item.motivo || 'cualquiera', abreEn: '', abreEnMs: 0 };
 
+      const hojaPorSiFalla = estado.hoja;
+      estado.hoja = null;
+      avisarYRedibujar('Carta guardada 💌');
       try {
         await datos.crearCarta(sobre, texto);
-        estado.hoja = null;
-        avisarYRedibujar('Carta guardada 💌');
       } catch (e) {
+        estado.hoja = hojaPorSiFalla;
         avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
       }
     });
@@ -1657,15 +1680,18 @@ function conectarEventos() {
       const campos = new FormData(formPlan);
       const titulo = String(campos.get('titulo') || '').trim().slice(0, 120);
       if (!titulo) { avisarYRedibujar('Ponle un nombre al plan'); return; }
+      const plan = {
+        titulo,
+        nota: String(campos.get('nota') || '').trim().slice(0, 500),
+        modo: estado.hoja.item.modo || 'juntos',
+      };
+      const hojaPorSiFalla = estado.hoja;
+      estado.hoja = null;
+      avisarYRedibujar('Plan agregado ✨');
       try {
-        await datos.crearPlan({
-          titulo,
-          nota: String(campos.get('nota') || '').trim().slice(0, 500),
-          modo: estado.hoja.item.modo || 'juntos',
-        });
-        estado.hoja = null;
-        avisarYRedibujar('Plan agregado ✨');
+        await datos.crearPlan(plan);
       } catch (e) {
+        estado.hoja = hojaPorSiFalla;
         avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
       }
     });
@@ -1686,12 +1712,15 @@ function conectarEventos() {
         aDistancia: campos.get('aDistancia') === 'on',
         foto: estado.hoja.item.foto || '',
       };
+      const editando = estado.hoja.modo === 'editar' ? estado.hoja.item.id : null;
+      const hojaPorSiFalla = estado.hoja;
+      estado.hoja = null;
+      avisarYRedibujar('Receta guardada 🍳');
       try {
-        if (estado.hoja.modo === 'editar') await datos.editarReceta(estado.hoja.item.id, contenido);
+        if (editando) await datos.editarReceta(editando, contenido);
         else await datos.crearReceta(contenido);
-        estado.hoja = null;
-        avisarYRedibujar('Receta guardada 🍳');
       } catch (e) {
+        estado.hoja = hojaPorSiFalla;
         avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
       }
     });
@@ -1704,16 +1733,19 @@ function conectarEventos() {
       const campos = new FormData(formCancion);
       const titulo = String(campos.get('titulo') || '').trim().slice(0, 120);
       if (!titulo) { avisarYRedibujar('Falta el nombre de la canción'); return; }
+      const cancion = {
+        titulo,
+        artista: String(campos.get('artista') || '').trim().slice(0, 120),
+        enlace: String(campos.get('enlace') || '').trim().slice(0, 500),
+        historia: String(campos.get('historia') || '').trim().slice(0, 1000),
+      };
+      const hojaPorSiFalla = estado.hoja;
+      estado.hoja = null;
+      avisarYRedibujar('Canción guardada 🎵');
       try {
-        await datos.crearCancion({
-          titulo,
-          artista: String(campos.get('artista') || '').trim().slice(0, 120),
-          enlace: String(campos.get('enlace') || '').trim().slice(0, 500),
-          historia: String(campos.get('historia') || '').trim().slice(0, 1000),
-        });
-        estado.hoja = null;
-        avisarYRedibujar('Canción guardada 🎵');
+        await datos.crearCancion(cancion);
       } catch (e) {
+        estado.hoja = hojaPorSiFalla;
         avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
       }
     });
@@ -1726,11 +1758,13 @@ function conectarEventos() {
       const nombre = String(new FormData(formLugar).get('nombre') || '').trim().slice(0, 80);
       if (!nombre) { avisarYRedibujar('Ponle un nombre al lugar'); return; }
       const { lat, lng } = estado.hoja.item;
+      const hojaPorSiFalla = estado.hoja;
+      estado.hoja = null;
+      avisarYRedibujar('Lugar guardado 📍');
       try {
         await datos.crearLugar({ nombre, lat, lng });
-        estado.hoja = null;
-        avisarYRedibujar('Lugar guardado 📍');
       } catch (e) {
+        estado.hoja = hojaPorSiFalla;
         avisarYRedibujar('No se pudo guardar. Revisa tu conexión.');
       }
     });

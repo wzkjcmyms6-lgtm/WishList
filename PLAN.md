@@ -247,6 +247,30 @@ cada elemento, y un campo no tiene texto — tiene valor. Ahora mide el valor (o
 el marcador de posición) y revisa de noche también las pantallas donde se
 escribe. Comprobado volviendo a meter el error a propósito: lo marca.
 
+**Corregido después, con otra captura:** en Deseos se podía guardar el mismo
+producto varias veces.
+
+Al tocar "Guardar", la hoja se quedaba abierta hasta que el servidor
+confirmaba. Firestore guarda primero en el celular y avisa a la pantalla al
+instante (por eso el deseo ya aparecía en la lista), pero la promesa recién se
+cumple cuando contesta el servidor. En ese rato: la pantalla se redibujaba, el
+candado contra el doble toque se soltaba —porque se soltaba en cada
+dibujado— y la hoja seguía ahí, así que un segundo toque creaba el deseo otra
+vez. Con el internet lento eso son varios segundos.
+
+- **Las hojas se cierran al toque de guardar**, sin esperar al servidor: el
+  dato ya está en el celular. Si la confirmación falla de verdad, la hoja
+  vuelve con todo lo escrito y lo dice.
+- **El candado lo suelta la tarea que guarda**, no el dibujado. Así protege
+  también a los formularios que no cierran ninguna hoja: comentarios, gracias,
+  respuesta de la pregunta, apodos y "Agregar fecha".
+- El Firebase simulado de las pruebas ahora **demora en confirmar**, como el de
+  verdad. Con todo instantáneo, ninguna prueba podía ver ese rato, que es justo
+  donde estaba el error.
+
+Se reprodujo primero (tres toques = tres deseos idénticos, con foto, igual que
+en la captura) y después se arregló.
+
 **Queda anotado, no es una falla:** "Comida" (lo que les gusta comer) y
 "Recetas" (lo que quieren cocinar) se parecen de nombre. Si alguna vez
 confunden, conviene renombrar una de las dos.
